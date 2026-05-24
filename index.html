@@ -470,7 +470,7 @@ function dqSelect(letter){
   S.score.correct+=correct?1:0;S.score.total+=1;
   S.streak=correct?S.streak+1:0;
   if(S.streak>S.bestStreak)S.bestStreak=S.streak;
-  S.history.unshift({question:S.dqQuestion.question,mode:'Domain Q',
+  S.history.unshift({question:S.dqQuestion.question,scenario:S.dqQuestion.scenario||null,mode:'Domain Q',
     domainId:S.dqDomain,tag:domIcon(S.dqDomain)+' '+domLabel(S.dqDomain),
     diff:S.dqDiff,correct,answer:letter,correctAnswer:S.dqQuestion.correct,
     choices:S.dqQuestion.choices,wrong_reasons:S.dqQuestion.wrong_reasons,explanation:S.dqQuestion.explanation,guideline_ref:S.dqQuestion.guideline_ref});
@@ -568,7 +568,8 @@ function msSelect(letter){
   S.history.unshift({question:q.question,mode:'Med Scenario',
     settingId:S.msSetting,tag:setIcon(S.msSetting)+' '+setLabel(S.msSetting)+' – '+q.type,
     diff:S.msDiff,correct,answer:letter,correctAnswer:q.correct,
-    choices:q.choices,wrong_reasons:q.wrong_reasons,explanation:q.explanation,guideline_ref:q.guideline_ref});
+    choices:q.choices,wrong_reasons:q.wrong_reasons,explanation:q.explanation,guideline_ref:q.guideline_ref,
+    qnum:q.qnum,qtype:q.type,case_title:S.msCase.case_title,documents:S.msCase.documents});
   if(S.history.length>500)S.history.pop();
   saveHistory();
   updateBadge();renderContent();
@@ -865,6 +866,7 @@ function renderKeyScreen(){
   </div>`;
 }
 
+function histNoop(){}
 function openHistDetail(i){
   S.histDetailIdx=i;
   S.screen='histdetail';
@@ -876,39 +878,61 @@ function renderHistDetail(){
   const x=S.history[S.histDetailIdx];
   if(!x) return `<div class="quiz-body"><button class="retry-btn" onclick="navigate('stats')">← Back</button></div>`;
   const ok=x.correct;
-  const choicesHtml=x.choices?['A','B','C','D'].map(l=>{
-    const isCorrect=l===x.correctAnswer;
-    const isWrong=l===x.answer&&!ok;
-    const bg=isCorrect?'#0d1f0d':isWrong?'#1f0d0d':'transparent';
-    const borderColor=isCorrect?'var(--green)':isWrong?'var(--red)':'var(--border)';
-    const textColor=isCorrect?'#86efac':isWrong?'#fca5a5':'var(--muted)';
-    const letterBg=isCorrect?'var(--green)':isWrong?'var(--red)':'var(--border)';
-    const letterColor=isCorrect||isWrong?'#000':'var(--dim)';
-    const reason=!isCorrect&&x.wrong_reasons?.[l]
-      ?`<div style="font-size:11px;color:var(--red);margin-top:3px;font-style:italic;">${x.wrong_reasons[l]}</div>`:'';
-    return `<div style="display:flex;gap:10px;align-items:flex-start;padding:10px;border-radius:10px;border:1.5px solid ${borderColor};background:${bg};margin-bottom:8px;">
-      <span style="min-width:26px;height:26px;border-radius:7px;background:${letterBg};color:${letterColor};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;">${l}</span>
-      <div><div style="font-size:14px;color:${textColor};line-height:1.5;">${x.choices[l]}</div>${reason}</div>
-    </div>`;
-  }).join(''):'';
 
-  return `<div class="quiz-body" style="padding-bottom:40px;">
-    <button onclick="navigate('stats')" style="background:none;border:none;color:var(--blue);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;padding:0 0 16px;display:flex;align-items:center;gap:6px;">← Back to Stats</button>
-    <div style="background:${ok?'#0d1f0d':'#1a0d0d'};border:1.5px solid ${ok?'var(--green)':'var(--red)'};border-radius:12px;padding:11px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;">
-      <span style="font-size:20px;">${ok?'✓':'✗'}</span>
-      <div>
-        <div style="font-size:12px;font-weight:700;color:${ok?'var(--green)':'var(--red)'};">${ok?'CORRECT':'INCORRECT'}</div>
-        <div style="font-size:11px;color:var(--dim);margin-top:1px;">${x.diff} · ${x.tag||''}</div>
+  const backBtn=`<button onclick="navigate('stats')" style="background:none;border:none;color:var(--blue);font-family:'DM Sans',sans-serif;font-size:14px;font-weight:700;cursor:pointer;padding:0 0 14px;display:flex;align-items:center;gap:6px;">← Back to Stats</button>`;
+
+  const resultTag=`<div class="context-tags">
+    <span class="ctag" style="background:${ok?'#4ade8022':'#f8717122'};color:${ok?'var(--green)':'var(--red)'}">${ok?'✓ Correct':'✗ Incorrect'}</span>
+    <span class="ctag" style="background:${diffColor(x.diff)}22;color:${diffColor(x.diff)}">${x.diff}</span>
+    <span class="ctag" style="background:#7eb8f722;color:#7eb8f7">${x.tag||''}</span>
+  </div>`;
+
+  const choicesHtml=renderChoices(x.choices,true,x.answer,x.correctAnswer,'histNoop',x.wrong_reasons);
+  const explanationHtml=renderExplanation(true,x.answer,x.correctAnswer,x.explanation,x.guideline_ref);
+
+  // ── Domain Q view ──
+  if(x.mode==='Domain Q'){
+    return `<div class="quiz-body" style="padding-bottom:40px;">
+      ${backBtn}${resultTag}
+      <div class="q-card">
+        ${x.scenario?`<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:8px;padding:11px;margin-bottom:11px;font-size:13px;color:var(--muted);line-height:1.6;font-style:italic;">${x.scenario}</div>`:''}
+        <div class="q-text">${x.question}</div>
       </div>
+      ${choicesHtml}
+      ${explanationHtml}
+    </div>`;
+  }
+
+  // ── Med Scenario view ──
+  const docsHtml=(x.documents||[]).map(doc=>`
+    <div class="doc-section">
+      <div class="doc-section-title">${doc.section}</div>
+      ${doc.content.split('\\n').map(line=>{
+        const ci=line.indexOf(':');
+        if(ci>0&&ci<40&&line===line.trimStart())
+          return `<div class="doc-line"><span class="doc-label">${line.slice(0,ci)}:</span>${line.slice(ci+1)}</div>`;
+        return `<div class="doc-line">${line}</div>`;
+      }).join('')}
+    </div>`).join('');
+
+  return `<div class="quiz-body ms-quiz-body" style="padding-bottom:40px;">
+    <div style="grid-column:1/-1">${backBtn}${resultTag}</div>
+    <div class="case-card">
+      <div class="case-header">
+        <span class="case-title">${x.case_title||''}</span>
+        <span class="case-setting">${setIcon(x.settingId)} ${setLabel(x.settingId)}</span>
+      </div>
+      <div class="case-docs">${docsHtml}</div>
     </div>
-    <div style="font-size:15px;font-weight:600;color:var(--text);line-height:1.65;margin-bottom:16px;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:12px;">${x.question}</div>
-    <div style="font-size:10px;font-weight:700;color:var(--dim);letter-spacing:1.5px;margin-bottom:8px;">CHOICES</div>
-    ${choicesHtml}
-    ${x.explanation?`<div style="background:${ok?'#0d1b0d':'#1a0d0d'};border:1px solid ${ok?'#1a3a1a':'#3a1a1a'};border-radius:12px;padding:14px;margin-top:4px;">
-      <div style="font-size:10px;font-weight:700;letter-spacing:1.5px;color:${ok?'var(--green)':'var(--red)'};margin-bottom:8px;">EXPLANATION</div>
-      <div style="font-size:13px;line-height:1.65;color:${ok?'#86efac':'#fca5a5'}">${x.explanation}</div>
-      ${x.guideline_ref?`<div style="font-size:11px;margin-top:8px;font-style:italic;color:${ok?'var(--green)':'var(--red)'}">📖 ${x.guideline_ref}</div>`:''}
-    </div>`:''}
+    <div class="ms-right">
+      <div class="sub-q-header">
+        <div class="sub-q-num">Q${x.qnum||''}</div>
+        <div class="sub-q-type">${x.qtype||''}</div>
+      </div>
+      <div class="q-card"><div class="q-text">${x.question}</div></div>
+      ${choicesHtml}
+      ${explanationHtml}
+    </div>
   </div>`;
 }
 
