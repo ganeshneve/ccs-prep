@@ -238,34 +238,6 @@ const SETTINGS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
-// Cost tracking — Sonnet pricing
-const PRICE_INPUT  = 3.00;   // $ per 1M input tokens
-const PRICE_OUTPUT = 15.00;  // $ per 1M output tokens
-
-function loadCostData(){
-  try{
-    const d=JSON.parse(localStorage.getItem('ccs_cost')||'{}');
-    return {inputTokens:d.inputTokens||0, outputTokens:d.outputTokens||0, budget:d.budget||50};
-  }catch(e){return {inputTokens:0,outputTokens:0,budget:50};}
-}
-function saveCostData(){
-  localStorage.setItem('ccs_cost',JSON.stringify({
-    inputTokens:S.cost.inputTokens,
-    outputTokens:S.cost.outputTokens,
-    budget:S.cost.budget
-  }));
-}
-function calcCost(inp,out){ return (inp*PRICE_INPUT + out*PRICE_OUTPUT)/1_000_000; }
-function totalSpent(){ return calcCost(S.cost.inputTokens, S.cost.outputTokens); }
-function remaining(){ return Math.max(0, S.cost.budget - totalSpent()); }
-function trackUsage(usage){
-  if(!usage) return;
-  S.cost.inputTokens  += usage.input_tokens  || 0;
-  S.cost.outputTokens += usage.output_tokens || 0;
-  saveCostData();
-  updateBadge();
-}
-
 let S = {
   screen:'home',
   // domain q
@@ -276,8 +248,6 @@ let S = {
   msCase:null, msQIndex:0, msAnswers:{}, msRevealed:{}, msLoading:false, msError:null,
   // shared stats
   score:{correct:0,total:0}, streak:0, bestStreak:0, history:[],
-  // cost tracking
-  cost: loadCostData(),
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -306,8 +276,7 @@ function updateBadge(){
   if((S.screen==='dq'||S.screen==='ms') && S.score.total>0){
     b.textContent=(S.streak>=2?'🔥'+S.streak+' · ':'')+pct()+'% ('+S.score.correct+'/'+S.score.total+')';
   } else {
-    const spent=totalSpent();
-    b.textContent= spent>0 ? '$'+spent.toFixed(3)+' used' : 'Claude Sonnet';
+    b.textContent='Claude Sonnet';
   }
 }
 function render(){updateBadge();renderContent();}
@@ -355,7 +324,7 @@ async function loadDomainQ(){
     });
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    trackUsage(data.usage);
+
     const raw=data.content?.[0]?.text||'';
     if(!raw) throw new Error('Empty response from Claude. Raw: '+JSON.stringify(data));
     let clean=raw.replace(/```json|```/g,'').trim();
@@ -443,7 +412,7 @@ async function loadMedScenario(){
     });
     const data=await res.json();
     if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-    trackUsage(data.usage);
+
     const raw=data.content?.[0]?.text||'';
     if(!raw) throw new Error('Empty response from Claude. Raw: '+JSON.stringify(data));
     let clean=raw.replace(/```json|```/g,'').trim();
@@ -524,15 +493,6 @@ function renderHome(){
     <h1>CCS Exam Practice</h1>
     <p class="hero-sub">Official AHIMA CCS Content Outline 2024<br/>Powered by Claude Sonnet</p>
     <div id="countdown-banner" style="margin-top:10px;background:#1a1f35;border:1px solid #2a3a55;border-radius:10px;padding:8px 14px;font-size:12px;color:#fbbf24;font-weight:700;"></div>
-    <div onclick="navigate('key')" style="margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 14px;cursor:pointer;">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
-        <span style="font-size:11px;color:var(--muted);">💳 API Usage</span>
-        <span style="font-size:11px;color:var(--text);font-weight:700;" id="budget-text"></span>
-      </div>
-      <div style="background:var(--border);border-radius:99px;height:4px;overflow:hidden;">
-        <div id="budget-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#4ade80,#fbbf24);transition:width .5s;"></div>
-      </div>
-    </div>
   </div>
   ${!hasKey?`<div class="no-key-banner">⚠️ API key required<br/><button class="no-key-btn" onclick="navigate('key')">Set Up Gemini API Key →</button></div>`:''}
   <div class="section-label">Choose Practice Mode</div>
@@ -720,35 +680,6 @@ function renderKeyScreen(){
     <div class="key-hero"><span class="key-icon">🔑</span><div class="key-title">Gemini API Key</div><p class="key-sub">Stored only on this device.<br/>Sent only to Anthropic's API.</p></div>
     ${saved?`
       <div class="key-saved"><span>✓ Key saved: ${masked}</span><button class="key-clear" onclick="clearKey();render()">Remove</button></div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
-        <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1.5px;">USAGE & COST TRACKER</div>
-        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
-          <div style="background:var(--surface2);border-radius:8px;padding:10px;">
-            <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#f87171;">$${totalSpent().toFixed(3)}</div>
-            <div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;">SPENT</div>
-          </div>
-          <div style="background:var(--surface2);border-radius:8px;padding:10px;">
-            <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#4ade80;">$${remaining().toFixed(2)}</div>
-            <div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;">REMAINING</div>
-          </div>
-          <div style="background:var(--surface2);border-radius:8px;padding:10px;">
-            <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#7eb8f7;">$${S.cost.budget.toFixed(0)}</div>
-            <div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;">BUDGET</div>
-          </div>
-        </div>
-        <div style="background:var(--border);border-radius:99px;height:6px;overflow:hidden;">
-          <div style="height:100%;border-radius:99px;background:linear-gradient(90deg,#4ade80,#fbbf24,#f87171);width:${Math.min(100,totalSpent()/S.cost.budget*100).toFixed(1)}%;transition:width .5s;"></div>
-        </div>
-        <div style="font-size:11px;color:var(--dim);text-align:center;">${(S.cost.inputTokens/1000).toFixed(1)}K input · ${(S.cost.outputTokens/1000).toFixed(1)}K output tokens used</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <span style="font-size:12px;color:var(--muted);flex-shrink:0;">Budget $</span>
-          <input type="number" value="${S.cost.budget}" min="1" max="500" step="5"
-            style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;"
-            onchange="S.cost.budget=parseFloat(this.value)||50;saveCostData();render()"/>
-          <button onclick="S.cost.inputTokens=0;S.cost.outputTokens=0;saveCostData();render()"
-            style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--dim);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Reset</button>
-        </div>
-      </div>
       <button class="key-save" onclick="navigate('home')">Go to Practice →</button>
     `:`
       <div class="key-steps">
@@ -757,9 +688,6 @@ function renderKeyScreen(){
         <div class="key-step"><span class="step-num">3</span><span class="step-text">Go to <b style="color:var(--text)">API Keys</b> → Create Key</span></div>
         <div class="key-step"><span class="step-num">4</span><span class="step-text">Copy and paste below (starts with sk-ant-...)</span></div>
       </div>
-      <div style="background:#1a1f35;border:1px solid #2a3a55;border-radius:10px;padding:11px 13px;font-size:11px;color:var(--muted);line-height:1.6;">
-        💡 <b style="color:var(--text)">Budget tip:</b> Load $50 for 4 weeks of heavy prep (~2,800 questions). Domain Q ≈ $0.009 each · Med Scenario ≈ $0.026 each. Credits never expire.
-      </div>
       <div class="key-input-wrap">
         <input class="key-input" id="key-field" type="password" placeholder="sk-ant-..."
           oninput="document.getElementById('save-btn').disabled=!this.value.trim()"
@@ -767,7 +695,7 @@ function renderKeyScreen(){
         <button class="key-toggle" onclick="var f=document.getElementById('key-field');f.type=f.type==='password'?'text':'password'">👁</button>
       </div>
       <button class="key-save" id="save-btn" disabled onclick="saveKeyAndGo()">Save & Start Practicing</button>
-      <p class="key-note">Claude Sonnet · Pay per use · ~$44 for full 4-week exam prep</p>
+      <p class="key-note">Claude Sonnet · Pay per use · stored only on this device</p>
     `}
   </div>`;
 }
@@ -791,15 +719,6 @@ function updateCountdown(){
       const hrs=Math.floor((diff%86400000)/3600000);
       el.innerHTML=`⏳ ${days} days ${hrs} hrs until CCS Exam — June 20, 2026`;
     }
-  }
-  // Update budget bar on home screen
-  const bt=document.getElementById('budget-text');
-  const bb=document.getElementById('budget-bar');
-  if(bt&&bb){
-    const spent=totalSpent(), pctUsed=S.cost.budget>0?Math.min(100,spent/S.cost.budget*100):0;
-    bt.textContent=spent>0?'$'+spent.toFixed(3)+' used'+(S.cost.budget>0?' / $'+S.cost.budget:''):'No usage yet';
-    bb.style.width=pctUsed.toFixed(1)+'%';
-    bb.style.background=pctUsed>80?'#f87171':pctUsed>50?'#fbbf24':'#4ade80';
   }
 }
 setInterval(updateCountdown,60000);
