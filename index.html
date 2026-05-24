@@ -470,7 +470,8 @@ function dqSelect(letter){
   if(S.streak>S.bestStreak)S.bestStreak=S.streak;
   S.history.unshift({question:S.dqQuestion.question,mode:'Domain Q',
     domainId:S.dqDomain,tag:domIcon(S.dqDomain)+' '+domLabel(S.dqDomain),
-    diff:S.dqDiff,correct,answer:letter,correctAnswer:S.dqQuestion.correct});
+    diff:S.dqDiff,correct,answer:letter,correctAnswer:S.dqQuestion.correct,
+    choices:S.dqQuestion.choices,explanation:S.dqQuestion.explanation,guideline_ref:S.dqQuestion.guideline_ref});
   if(S.history.length>500)S.history.pop();
   saveHistory();
   updateBadge();renderContent();
@@ -564,7 +565,8 @@ function msSelect(letter){
   if(S.streak>S.bestStreak)S.bestStreak=S.streak;
   S.history.unshift({question:q.question,mode:'Med Scenario',
     settingId:S.msSetting,tag:setIcon(S.msSetting)+' '+setLabel(S.msSetting)+' – '+q.type,
-    diff:S.msDiff,correct,answer:letter,correctAnswer:q.correct});
+    diff:S.msDiff,correct,answer:letter,correctAnswer:q.correct,
+    choices:q.choices,explanation:q.explanation,guideline_ref:q.guideline_ref});
   if(S.history.length>500)S.history.pop();
   saveHistory();
   updateBadge();renderContent();
@@ -797,11 +799,34 @@ function renderStats(){
 
   const histHtml=!h.length
     ?`<div class="empty-state"><div style="font-size:44px;margin-bottom:10px">📝</div><div>No answers yet. Start practicing!</div></div>`
-    :h.map(x=>`
-      <div class="hist-item ${x.correct?'c':'w'}">
-        <div class="hist-q">${x.question}</div>
-        <div class="hist-meta">${x.correct?'✓ Correct':'✗ Wrong (ans: '+x.correctAnswer+')'} · ${x.diff} · ${x.tag||''}</div>
-      </div>`).join('');
+    :h.map((x,i)=>{
+      const choicesHtml=x.choices?['A','B','C','D'].map(l=>{
+        let bg='',color='var(--muted)';
+        if(l===x.correctAnswer){bg='#0d1f0d';color='#4ade80';}
+        else if(l===x.answer&&!x.correct){bg='#1f0d0d';color='#f87171';}
+        return `<div style="display:flex;gap:8px;align-items:flex-start;padding:5px 8px;border-radius:6px;background:${bg};margin-bottom:3px;">
+          <span style="min-width:20px;height:20px;border-radius:5px;background:${l===x.correctAnswer?'#4ade80':l===x.answer&&!x.correct?'#f87171':'var(--border)'};color:${l===x.correctAnswer?'#000':l===x.answer&&!x.correct?'#000':'var(--dim)'};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;flex-shrink:0;">${l}</span>
+          <span style="font-size:12px;color:${color};line-height:1.4;">${x.choices[l]}</span>
+        </div>`;
+      }).join(''):'';
+      const detailHtml=`
+        <div class="hist-detail" id="hd-${i}" style="display:none;margin-top:10px;border-top:1px solid var(--border);padding-top:10px;">
+          ${choicesHtml}
+          ${x.explanation?`<div style="margin-top:8px;background:${x.correct?'#0d1b0d':'#1a0d0d'};border:1px solid ${x.correct?'#1a3a1a':'#3a1a1a'};border-radius:8px;padding:10px;">
+            <div style="font-size:10px;font-weight:700;letter-spacing:1px;color:${x.correct?'var(--green)':'var(--red)'};margin-bottom:4px;">${x.correct?'✓ CORRECT':'✗ INCORRECT'} — EXPLANATION</div>
+            <div style="font-size:12px;line-height:1.6;color:${x.correct?'#86efac':'#fca5a5'}">${x.explanation}</div>
+            ${x.guideline_ref?`<div style="font-size:11px;margin-top:5px;font-style:italic;color:${x.correct?'var(--green)':'var(--red)'}">📖 ${x.guideline_ref}</div>`:''}
+          </div>`:''}
+        </div>`;
+      return `<div class="hist-item ${x.correct?'c':'w'}" onclick="toggleHist(${i})" style="cursor:pointer;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;">
+          <div class="hist-q" style="flex:1">${x.question}</div>
+          <span id="hd-arrow-${i}" style="font-size:12px;color:var(--dim);flex-shrink:0;margin-top:1px;">▼</span>
+        </div>
+        <div class="hist-meta">${x.correct?'✓ Correct':'✗ Wrong (your ans: '+x.answer+', correct: '+x.correctAnswer+')'} · ${x.diff} · ${x.tag||''}</div>
+        ${detailHtml}
+      </div>`;
+    }).join('');
 
   return `<div class="stats-body">
     <div class="section-label">Overall</div>
@@ -854,6 +879,15 @@ function renderKeyScreen(){
       <p class="key-note">Claude Sonnet · Pay per use · stored only on this device</p>
     `}
   </div>`;
+}
+
+function toggleHist(i){
+  const d=document.getElementById('hd-'+i);
+  const a=document.getElementById('hd-arrow-'+i);
+  if(!d)return;
+  const open=d.style.display==='none';
+  d.style.display=open?'block':'none';
+  if(a)a.textContent=open?'▲':'▼';
 }
 
 let _clearPending=false;
