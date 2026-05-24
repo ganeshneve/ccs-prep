@@ -419,11 +419,13 @@ ACCURACY RULES — follow every one before writing your JSON:
 3. Each distractor must be wrong for a specific, nameable reason (wrong specificity, wrong laterality, sequencing error, wrong code set, etc.). Vague distractors are not allowed.
 4. The guideline_ref must cite a real section (e.g. "ICD-10-CM Official Guidelines Section I.C.19.e" or "CPT Surgery Guidelines — Integumentary"). Do not fabricate section numbers.
 5. The explanation must state why the correct answer is right AND briefly why the top distractor is wrong.
+6. SPECIFICITY RULE: Only assign a more specific code (e.g. with hypoxia, with hypercapnia, laterality, etc.) when the scenario EXPLICITLY documents that finding. If not documented, use the unspecified code.
+7. WRONG_REASON RULE: Each wrong_reason must describe the coding error type (wrong sequencing, wrong category, wrong specificity, excludes note, etc.). Never redefine or mislabel what the distractor code actually means.
 
 Write a 2–3 sentence clinical or regulatory scenario, then ask a question testing one domain task.
 
 Reply ONLY with valid JSON (no markdown, start with {, end with }):
-{"question":"...","scenario":"...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A","wrong_reasons":{"B":"5-8 words: specific reason this is wrong","C":"5-8 words: specific reason","D":"5-8 words: specific reason"},"explanation":"Under 80 words. Why the correct answer is right, citing the specific guideline.","guideline_ref":"Real guideline section"}
+{"question":"...","scenario":"...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A","wrong_reasons":{"B":"5-8 words: coding error type, not a code redefinition","C":"5-8 words: coding error type","D":"5-8 words: coding error type"},"explanation":"Under 80 words. Why the correct answer is right, citing the specific guideline.","guideline_ref":"Real guideline section"}
 
 One correct answer, complete JSON only.`;
 
@@ -452,7 +454,7 @@ async function prefetchDomainQ(){
   _pf.dqBusy=true; _pf.dq=null; updateBadge();
   try{
     const dom=DOMAINS.find(d=>d.id===domainId);
-    const q=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0.3,
+    const q=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0,
       system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,diff)}]});
     _pf.dq={question:q,domainId,diff};
   }catch(e){ _pf.dq=null; }
@@ -466,7 +468,7 @@ async function prefetchMedScenario(){
   let setting=examMode?SETTINGS[Math.floor(Math.random()*SETTINGS.length)]:(SETTINGS.find(s=>s.id===S.msSetting)||SETTINGS[0]);
   _pf.msBusy=true; _pf.ms=null; updateBadge();
   try{
-    const c=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:3500,temperature:0.3,
+    const c=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:3500,temperature:0,
       system:MS_SYS,messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,diff)}]});
     _pf.ms={msCase:c,settingId:setting.id,diff};
   }catch(e){ _pf.ms=null; }
@@ -480,7 +482,7 @@ async function loadDomainQ(){
   updateBadge();renderContent();
   try{
     const dom=DOMAINS.find(d=>d.id===S.dqDomain);
-    S.dqQuestion=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0.3,
+    S.dqQuestion=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0,
       system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff)}]});
     S.dqLoading=false;
     prefetchDomainQ(); // start fetching next question immediately while user reads this one
@@ -539,6 +541,8 @@ ACCURACY RULES — verify every item before writing your JSON:
 5. Each distractor must be wrong for a specific reason (wrong laterality, wrong specificity, wrong body part, wrong approach, bundling rule, sequencing error). State the reason in the explanation.
 6. Guideline references must be real and precise (e.g. "ICD-10-CM Official Guidelines Section I.C.9.a.1" or "ICD-10-PCS Guidelines B3.2").
 7. The clinical documentation must be internally consistent — diagnoses, procedures, and codes must all match.
+8. SPECIFICITY RULE: Only assign a more specific code (e.g. with hypoxia, with hypercapnia, laterality, etc.) when the clinical documentation EXPLICITLY states that finding. Do not infer specificity from clinical context — code only what is documented.
+9. WRONG_REASON RULE: Each wrong_reason must name the coding error type (wrong sequencing, wrong category, insufficient specificity, excludes note violation, etc.). Never redefine or mislabel what the distractor code actually means.
 
 REQUIRED DOCUMENTS for ${setting}:
 ${setting==='Inpatient'?`- HISTORY AND PHYSICAL: Reason for Admission, HPI (3-4 sentences), Past Medical History, Physical Examination, Impression
@@ -566,7 +570,7 @@ async function loadMedScenario(){
     :(SETTINGS.find(s=>s.id===S.msSetting)||SETTINGS[0]);
   if(S.msExamMode)S.msSetting=setting.id;
   try{
-    S.msCase=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:3500,temperature:0.3,
+    S.msCase=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:3500,temperature:0,
       system:MS_SYS,messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,S.msDiff)}]});
     S.msLoading=false;
     prefetchMedScenario(); // start fetching next case immediately while user works through this one
