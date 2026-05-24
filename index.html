@@ -355,7 +355,7 @@ function saveHistory(){
 let S = {
   screen:'home',
   // domain q
-  dqDomain:'d1', dqDiff:'Medium',
+  dqDomain:'d1', dqDiff:'Medium', dqBodySystem:null,
   dqQuestion:null, dqSelected:null, dqRevealed:false, dqLoading:false, dqError:null,
   // medical scenario
   msSetting:'inpatient', msDiff:'Medium', msExamMode:false,
@@ -428,7 +428,10 @@ const DQ_TOPIC_MAP = {
   'Z-Codes & Factors (Z00-Z99)':        ['aftercare and follow-up Z-codes','transplant status coding','screening and prophylactic surgery Z-codes'],
 };
 const _rand = arr => arr[Math.floor(Math.random()*arr.length)];
-const _randTopic = () => { const sys=_rand(Object.keys(DQ_TOPIC_MAP)); return `${sys}: ${_rand(DQ_TOPIC_MAP[sys])}`; };
+const _randTopic = () => {
+  const sys = S.dqBodySystem || _rand(Object.keys(DQ_TOPIC_MAP));
+  return `${sys}: ${_rand(DQ_TOPIC_MAP[sys])}`;
+};
 
 const DQ_PROMPT = (domain,tasks,diff,topic) =>
 `You are a senior AHIMA-certified CCS coder writing exam questions. AHIMA CCS Exam Content Outline (effective 05/01/2024).
@@ -730,6 +733,7 @@ function renderDomainQuiz(){
     <div class="context-tags">
       <span class="ctag" style="background:${diffColor(S.dqDiff)}22;color:${diffColor(S.dqDiff)}">${S.dqDiff}</span>
       <span class="ctag" style="background:#7eb8f722;color:#7eb8f7">${domIcon(S.dqDomain)} ${domLabel(S.dqDomain)}</span>
+      ${S.dqBodySystem?`<span class="ctag" style="background:#a78bfa22;color:#a78bfa">🫀 ${S.dqBodySystem.split(' (')[0]}</span>`:''}
     </div>`;
 
   if(S.dqLoading) return `<div class="quiz-body">${setupHtml}<div class="load-box"><div class="spinner"></div><div class="load-text">Generating domain question…</div></div></div>`;
@@ -739,12 +743,18 @@ function renderDomainQuiz(){
   const q=S.dqQuestion;
   return `<div class="quiz-body">
     ${setupHtml}
-    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+    <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="S.dqDomain=this.value;render()" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;">
         ${DOMAINS.map(d=>`<option value="${d.id}" ${S.dqDomain===d.id?'selected':''}>${d.icon} ${d.label} (${d.pct})</option>`).join('')}
       </select>
       <select onchange="S.dqDiff=this.value;render()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:${diffColor(S.dqDiff)};font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;">
         ${['Easy','Medium','Hard'].map(d=>`<option value="${d}" ${S.dqDiff===d?'selected':''}>${d}</option>`).join('')}
+      </select>
+    </div>
+    <div style="margin-bottom:10px;">
+      <select onchange="S.dqBodySystem=this.value||null;_pf.dq=null;render()" style="width:100%;background:var(--surface);border:1px solid ${S.dqBodySystem?'#a78bfa':'var(--border)'};border-radius:8px;padding:7px 10px;color:${S.dqBodySystem?'#a78bfa':'var(--muted)'};font-family:'DM Sans',sans-serif;font-size:12px;">
+        <option value="">🫀 All Body Systems (random)</option>
+        ${Object.keys(DQ_TOPIC_MAP).map(s=>`<option value="${s}" ${S.dqBodySystem===s?'selected':''}>${s}</option>`).join('')}
       </select>
     </div>
     <div class="q-card">
