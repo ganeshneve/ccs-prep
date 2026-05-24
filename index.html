@@ -1,0 +1,820 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover"/>
+<meta name="theme-color" content="#0a0e1a"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="CCS Prep"/>
+<title>CCS Prep — Claude AI</title>
+<link rel="manifest" href="manifest.json"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet"/>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --bg:#0a0e1a;--surface:#111827;--surface2:#0d1224;
+  --border:#1e2d4a;--blue:#3b82f6;--blue-dark:#1d4ed8;
+  --text:#cdd6f4;--muted:#8892b0;--dim:#3a4a6a;
+  --green:#4ade80;--red:#f87171;--yellow:#fbbf24;
+  --safe-top:env(safe-area-inset-top);--safe-bot:env(safe-area-inset-bottom);
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;overflow:hidden;}
+#app{height:100dvh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;}
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity 0.6s;}
+#splash.hide{opacity:0;pointer-events:none;}
+.splash-cross{width:80px;height:80px;position:relative;margin-bottom:24px;animation:pulse 1.5s ease-in-out infinite;}
+.splash-cross::before,.splash-cross::after{content:'';position:absolute;background:var(--blue);border-radius:4px;}
+.splash-cross::before{width:24px;height:72px;left:28px;top:4px;}
+.splash-cross::after{width:72px;height:24px;left:4px;top:28px;}
+.splash-ring{position:absolute;inset:-8px;border:2px solid var(--blue-dark);border-radius:50%;animation:spin 2s linear infinite;}
+@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.08);}}
+@keyframes spin{to{transform:rotate(360deg);}}
+.splash-title{font-family:'DM Serif Display',serif;font-size:32px;color:#fff;letter-spacing:1px;}
+.splash-sub{font-size:13px;color:var(--muted);margin-top:6px;letter-spacing:2px;}
+header{background:linear-gradient(135deg,#1a1f35,#0d1224);border-bottom:1px solid var(--border);padding:12px 18px;padding-top:calc(12px + var(--safe-top));display:flex;align-items:center;justify-content:space-between;flex-shrink:0;}
+.logo{font-family:'DM Serif Display',serif;font-size:20px;color:var(--blue);letter-spacing:1px;}
+.badge{background:#1e2d4a;border:1px solid #3a5080;border-radius:20px;padding:4px 12px;font-size:12px;color:var(--blue);font-weight:700;}
+#content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+#content::-webkit-scrollbar{width:3px;}
+#content::-webkit-scrollbar-thumb{background:var(--border);}
+nav{display:flex;border-top:1px solid var(--border);background:var(--surface2);flex-shrink:0;padding-bottom:var(--safe-bot);}
+.nav-btn{flex:1;padding:10px 0 8px;background:none;border:none;color:var(--dim);font-size:10px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;letter-spacing:.5px;transition:color .15s;}
+.nav-btn.active{color:var(--blue);}
+.nav-icon{font-size:18px;}
+
+/* HOME */
+.hero{text-align:center;padding:28px 24px 16px;background:linear-gradient(180deg,#111827,var(--bg));}
+.hero-cross{display:inline-flex;align-items:center;justify-content:center;width:64px;height:64px;position:relative;margin-bottom:12px;}
+.hero-cross::before,.hero-cross::after{content:'';position:absolute;background:var(--blue);border-radius:3px;}
+.hero-cross::before{width:16px;height:50px;}
+.hero-cross::after{width:50px;height:16px;}
+.hero-ring{position:absolute;inset:0;border:2px solid var(--blue-dark);border-radius:50%;}
+h1{font-family:'DM Serif Display',serif;font-size:24px;color:#fff;margin-bottom:4px;}
+.hero-sub{font-size:12px;color:var(--muted);line-height:1.5;}
+
+/* MODE CARDS */
+.section-label{font-size:10px;font-weight:700;color:var(--dim);letter-spacing:2px;text-transform:uppercase;padding:14px 16px 6px;}
+.mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 14px;}
+.mode-card{background:var(--surface);border:2px solid var(--border);border-radius:14px;padding:16px 12px;cursor:pointer;text-align:center;transition:all .15s;user-select:none;}
+.mode-card.sel{border-color:var(--blue);background:#1a2a45;}
+.mode-card-icon{font-size:28px;margin-bottom:8px;}
+.mode-card-title{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:4px;}
+.mode-card.sel .mode-card-title{color:#7eb8f7;}
+.mode-card-desc{font-size:10px;color:var(--dim);line-height:1.4;}
+
+/* DOMAIN / SCENARIO SELECTORS */
+.dom-list{display:flex;flex-direction:column;gap:8px;padding:0 14px;}
+.dom-card{background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:12px 14px;cursor:pointer;transition:all .15s;user-select:none;}
+.dom-card.sel{background:#1e3a5f;border-color:var(--blue);}
+.dom-top{display:flex;align-items:center;gap:10px;}
+.dom-icon{font-size:18px;flex-shrink:0;}
+.dom-label{font-size:13px;font-weight:700;color:var(--muted);flex:1;}
+.dom-card.sel .dom-label{color:#7eb8f7;}
+.dom-pct{font-size:10px;font-weight:700;color:var(--dim);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:2px 8px;flex-shrink:0;}
+.dom-card.sel .dom-pct{color:#7eb8f7;border-color:#3a5080;}
+.dom-tasks{font-size:11px;color:var(--dim);margin-top:6px;line-height:1.4;display:none;}
+.dom-card.sel .dom-tasks{display:block;color:#5a7aaa;}
+.diff-row{display:flex;gap:8px;padding:8px 14px;}
+.diff-btn{flex:1;padding:10px 0;border-radius:10px;border:1.5px solid var(--border);background:var(--surface);color:var(--dim);font-weight:700;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;}
+.diff-btn.easy.sel{border-color:#4ade80;background:#0d1f0d;color:#4ade80;}
+.diff-btn.medium.sel{border-color:#fbbf24;background:#1f180d;color:#fbbf24;}
+.diff-btn.hard.sel{border-color:#f87171;background:#1f0d0d;color:#f87171;}
+.start-btn{display:block;width:calc(100% - 28px);margin:16px 14px 32px;padding:16px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:14px;color:#fff;font-size:17px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;letter-spacing:.5px;box-shadow:0 4px 24px rgba(37,99,235,.4);}
+.no-key-banner{margin:0 14px 4px;background:#1a1500;border:1px solid #3a3000;border-radius:12px;padding:12px;text-align:center;font-size:13px;color:#fbbf24;}
+.no-key-btn{margin-top:8px;padding:7px 18px;background:#2a2000;border:1px solid var(--yellow);border-radius:8px;color:var(--yellow);font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;font-size:12px;}
+
+/* QUIZ SHARED */
+.quiz-body{padding:12px;}
+.score-bar{display:flex;justify-content:space-between;align-items:center;background:var(--surface);border-radius:12px;padding:8px 14px;margin-bottom:10px;border:1px solid var(--border);}
+.score-item{text-align:center;}
+.score-num{font-size:20px;font-weight:700;color:#7eb8f7;font-family:'DM Serif Display',serif;}
+.score-desc{font-size:9px;color:var(--dim);letter-spacing:1px;font-weight:700;}
+.context-tags{display:flex;gap:6px;margin-bottom:10px;flex-wrap:wrap;}
+.ctag{font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px);}to{opacity:1;transform:translateY(0);}}
+
+/* DOMAIN Q MODE */
+.q-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;margin-bottom:10px;animation:fadeUp .3s ease;}
+.q-text{font-size:15px;line-height:1.65;color:var(--text);font-weight:500;}
+.choice{display:flex;align-items:flex-start;gap:10px;width:100%;padding:13px;margin-bottom:8px;background:var(--surface);border:2px solid var(--border);border-radius:12px;cursor:pointer;text-align:left;font-family:'DM Sans',sans-serif;transition:all .2s;}
+.choice.correct{background:#0d1f0d;border-color:var(--green);}
+.choice.wrong{background:#1f0d0d;border-color:var(--red);}
+.choice.dim{background:var(--bg);border-color:var(--surface);}
+.choice-letter{min-width:26px;height:26px;border-radius:7px;background:var(--border);color:var(--dim);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0;}
+.choice.correct .choice-letter{background:var(--green);color:#000;}
+.choice.wrong .choice-letter{background:var(--red);color:#000;}
+.choice-text{font-size:14px;line-height:1.5;color:var(--text);padding-top:1px;}
+.choice.correct .choice-text{color:#86efac;}
+.choice.wrong .choice-text{color:#fca5a5;}
+.choice.dim .choice-text{color:var(--dim);}
+.explanation{border-radius:12px;padding:14px;margin-top:10px;animation:fadeUp .3s ease;}
+.explanation.ok{background:#0d1b0d;border:1px solid #1a3a1a;}
+.explanation.ng{background:#1a0d0d;border:1px solid #3a1a1a;}
+.exp-title{font-size:11px;font-weight:700;letter-spacing:1.5px;margin-bottom:6px;}
+.explanation.ok .exp-title{color:var(--green);}
+.explanation.ng .exp-title{color:var(--red);}
+.exp-text{font-size:13px;line-height:1.6;}
+.explanation.ok .exp-text{color:#86efac;}
+.explanation.ng .exp-text{color:#fca5a5;}
+.guide-ref{font-size:11px;margin-top:6px;font-style:italic;}
+.explanation.ok .guide-ref{color:var(--green);}
+.explanation.ng .guide-ref{color:var(--red);}
+.next-btn{width:100%;padding:14px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;margin-top:8px;box-shadow:0 4px 16px rgba(37,99,235,.3);}
+
+/* MEDICAL SCENARIO MODE */
+.case-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;margin-bottom:10px;overflow:hidden;}
+.case-header{background:#0d1a2e;border-bottom:1px solid var(--border);padding:12px 14px;display:flex;align-items:center;justify-content:space-between;}
+.case-title{font-family:'DM Serif Display',serif;font-size:15px;color:#7eb8f7;}
+.case-setting{font-size:10px;font-weight:700;color:var(--muted);letter-spacing:1px;}
+.case-docs{padding:14px;max-height:280px;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.case-docs::-webkit-scrollbar{width:3px;}
+.case-docs::-webkit-scrollbar-thumb{background:var(--border);}
+.doc-section{margin-bottom:14px;}
+.doc-section-title{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border);padding-bottom:6px;margin-bottom:8px;}
+.doc-line{font-size:12px;line-height:1.6;color:var(--muted);}
+.doc-label{font-weight:700;color:var(--text);}
+.case-hint{text-align:center;padding:6px;font-size:11px;color:var(--dim);border-top:1px solid var(--border);}
+.sub-q-header{display:flex;align-items:center;gap:8px;margin-bottom:10px;}
+.sub-q-num{background:var(--blue-dark);color:#fff;width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;}
+.sub-q-type{font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1px;text-transform:uppercase;}
+.q-progress{display:flex;gap:6px;margin-bottom:12px;}
+.q-dot{flex:1;height:4px;border-radius:2px;background:var(--border);}
+.q-dot.done{background:var(--green);}
+.q-dot.active{background:var(--blue);}
+
+/* LOAD / ERROR */
+.load-box{text-align:center;padding:50px 20px;}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top:3px solid var(--blue);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 14px;}
+.load-text{color:var(--muted);font-size:14px;}
+.error-box{background:#1a0d0d;border:1px solid #5a1a1a;border-radius:12px;padding:18px;text-align:center;color:var(--red);margin:16px 0;font-size:13px;line-height:1.6;}
+.retry-btn{margin-top:10px;padding:9px 22px;background:#2a1a1a;border:1px solid var(--red);border-radius:8px;color:var(--red);font-family:'DM Sans',sans-serif;font-weight:700;cursor:pointer;}
+
+/* HISTORY / STATS */
+.hist-body{padding:12px 14px 20px;}
+.hist-item{background:var(--surface);border-radius:10px;padding:11px 13px;margin-bottom:7px;}
+.hist-item.c{border:1px solid #1a3a1a;border-left:3px solid var(--green);}
+.hist-item.w{border:1px solid #3a1a1a;border-left:3px solid var(--red);}
+.hist-q{font-size:12px;color:var(--text);line-height:1.4;margin-bottom:4px;}
+.hist-meta{font-size:10px;color:var(--dim);}
+.empty-state{text-align:center;padding:50px 20px;color:var(--dim);}
+.stats-body{padding:12px 14px;}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:10px;text-align:center;}
+.stat-big{font-family:'DM Serif Display',serif;font-size:44px;color:var(--blue);}
+.stat-label{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:1px;font-weight:700;}
+.stat-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;}
+.stat-small{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:14px;text-align:center;}
+.stat-med{font-family:'DM Serif Display',serif;font-size:30px;}
+.progress-bar{background:var(--border);border-radius:99px;height:6px;margin-top:10px;overflow:hidden;}
+.progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue-dark),var(--blue));transition:width .6s ease;}
+
+/* KEY SCREEN */
+.key-screen{padding:28px 20px;display:flex;flex-direction:column;gap:14px;}
+.key-hero{text-align:center;padding:16px 0;}
+.key-icon{font-size:48px;display:block;margin-bottom:10px;}
+.key-title{font-family:'DM Serif Display',serif;font-size:22px;color:#fff;margin-bottom:6px;}
+.key-sub{font-size:12px;color:var(--muted);line-height:1.6;}
+.key-steps{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px;}
+.key-step{display:flex;gap:10px;align-items:flex-start;margin-bottom:12px;}
+.key-step:last-child{margin-bottom:0;}
+.step-num{min-width:24px;height:24px;background:var(--blue-dark);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;flex-shrink:0;}
+.step-text{font-size:12px;color:var(--muted);line-height:1.5;}
+.step-text a{color:var(--blue);text-decoration:none;}
+.key-input-wrap{position:relative;}
+.key-input{width:100%;background:var(--surface);border:2px solid var(--border);border-radius:12px;padding:13px 46px 13px 14px;color:var(--text);font-size:14px;font-family:'DM Sans',sans-serif;outline:none;transition:border-color .2s;}
+.key-input:focus{border-color:var(--blue);}
+.key-input::placeholder{color:var(--dim);}
+.key-toggle{position:absolute;right:13px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--muted);cursor:pointer;font-size:17px;}
+.key-save{width:100%;padding:14px;background:linear-gradient(135deg,#1d4ed8,#2563eb);border:none;border-radius:12px;color:#fff;font-size:15px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;box-shadow:0 4px 20px rgba(37,99,235,.4);}
+.key-save:disabled{opacity:.5;cursor:not-allowed;}
+.key-note{font-size:11px;color:var(--dim);text-align:center;line-height:1.5;}
+.key-saved{background:#0d1f0d;border:1px solid #1a3a1a;border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:10px;font-size:12px;color:#86efac;}
+.key-clear{margin-left:auto;background:none;border:1px solid #3a1a1a;border-radius:6px;padding:3px 9px;color:var(--red);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;}
+</style>
+</head>
+<body>
+<div id="splash">
+  <div class="splash-cross"><div class="splash-ring"></div></div>
+  <div class="splash-title">CCS PREP</div>
+  <div class="splash-sub">AI · EXAM PRACTICE</div>
+</div>
+<div id="app">
+  <header>
+    <span class="logo">CCS PREP</span>
+    <span class="badge" id="header-badge">Gemini AI</span>
+  </header>
+  <div id="content"></div>
+  <nav>
+    <button class="nav-btn active" id="nav-home" onclick="navigate('home')"><span class="nav-icon">⚙️</span>SETUP</button>
+    <button class="nav-btn" id="nav-dq" onclick="navigate('dq')"><span class="nav-icon">📚</span>DOMAIN Q</button>
+    <button class="nav-btn" id="nav-ms" onclick="navigate('ms')"><span class="nav-icon">🏥</span>MED SCENARIO</button>
+    <button class="nav-btn" id="nav-history" onclick="navigate('history')"><span class="nav-icon">📋</span>HISTORY</button>
+    <button class="nav-btn" id="nav-key" onclick="navigate('key')"><span class="nav-icon">🔑</span>KEY</button>
+  </nav>
+</div>
+
+<script>
+// ── DATA ──────────────────────────────────────────────────────────────────────
+const DOMAINS = [
+  {id:'d1',label:'Coding Knowledge & Skills',icon:'🏥',pct:'39-41%',
+   tasks:'1.Assign diagnosis/procedure codes from provider documentation 2.Identify principal/first-listed diagnosis & procedure 3.Apply coding conventions/guidelines 4.Attach CPT/HCPCS modifiers to outpatient procedures 5.Sequence diagnoses and procedures 6.Apply POA guidelines 7.Apply NCCI/Medical Necessity edits 8.Apply DRG/APC reimbursement methodologies 9.Abstract data from health record 10.Identify MCC and CC'},
+  {id:'d2',label:'Coding Documentation',icon:'📄',pct:'18-22%',
+   tasks:'1.Resolve conflicting documentation (admission type, laterality) 2.Ensure required documentation exists for code assignment 3.Verify and validate documentation within the health record'},
+  {id:'d3',label:'Provider Queries',icon:'💬',pct:'9-11%',
+   tasks:'1.Identify elements of an ethical compliant query 2.Determine if a provider query is compliant (non-leading, appropriate clinical indicators) 3.Analyze documentation to identify query opportunities'},
+  {id:'d4',label:'Regulatory Compliance',icon:'⚖️',pct:'18-22%',
+   tasks:'1.Ensure completeness and accuracy of health records 2.Understand payer-specific guidelines 3.Identify PSIs and HACs from provider documentation 4.Ensure HIPAA compliance 5.Adhere to AHIMA Standards of Ethical Coding 6.Ensure UHDDS compliance'},
+  {id:'d5',label:'Information Technologies',icon:'💻',pct:'9-11%',
+   tasks:'1.Distinguish types of EHRs 2.Understand encoding and grouper software 3.Understand CAC software and its impact on coding 4.Ensure HITECH compliance'},
+];
+
+const SETTINGS = [
+  {id:'inpatient',  label:'Inpatient',          icon:'🛏️', pct:'33.3%',
+   rules:'Use ICD-10-CM for diagnoses and ICD-10-PCS for procedures. Apply UHDDS principal diagnosis definition, POA indicators, MS-DRG grouping logic, MCC/CC designation. Documentation: H&P, progress notes, operative report, discharge summary, pathology report.'},
+  {id:'outpatient', label:'Outpatient',          icon:'🏨', pct:'33.3%',
+   rules:'Use ICD-10-CM for diagnoses and CPT/HCPCS for procedures. Apply first-listed diagnosis guidelines (not principal), outpatient coding guidelines Section IV, APC reimbursement, CPT modifiers, NCCI edits, medical necessity. Documentation: clinic/office notes, orders, procedure reports.'},
+  {id:'ed',         label:'Emergency Department',icon:'🚨', pct:'33.3%',
+   rules:'ED is outpatient. Use ICD-10-CM and CPT E/M codes 99281-99285 or critical care 99291-99292. Apply first-listed diagnosis guidelines, treat-and-release vs. admission decision, EMTALA requirements. Documentation: ED note with triage, HPI, exam, MDM, disposition.'},
+];
+
+// ── STATE ─────────────────────────────────────────────────────────────────────
+// Cost tracking — Sonnet pricing
+const PRICE_INPUT  = 3.00;   // $ per 1M input tokens
+const PRICE_OUTPUT = 15.00;  // $ per 1M output tokens
+
+function loadCostData(){
+  try{
+    const d=JSON.parse(localStorage.getItem('ccs_cost')||'{}');
+    return {inputTokens:d.inputTokens||0, outputTokens:d.outputTokens||0, budget:d.budget||50};
+  }catch(e){return {inputTokens:0,outputTokens:0,budget:50};}
+}
+function saveCostData(){
+  localStorage.setItem('ccs_cost',JSON.stringify({
+    inputTokens:S.cost.inputTokens,
+    outputTokens:S.cost.outputTokens,
+    budget:S.cost.budget
+  }));
+}
+function calcCost(inp,out){ return (inp*PRICE_INPUT + out*PRICE_OUTPUT)/1_000_000; }
+function totalSpent(){ return calcCost(S.cost.inputTokens, S.cost.outputTokens); }
+function remaining(){ return Math.max(0, S.cost.budget - totalSpent()); }
+function trackUsage(usage){
+  if(!usage) return;
+  S.cost.inputTokens  += usage.input_tokens  || 0;
+  S.cost.outputTokens += usage.output_tokens || 0;
+  saveCostData();
+  updateBadge();
+}
+
+let S = {
+  screen:'home',
+  // domain q
+  dqDomain:'d1', dqDiff:'Medium',
+  dqQuestion:null, dqSelected:null, dqRevealed:false, dqLoading:false, dqError:null,
+  // medical scenario
+  msSetting:'inpatient', msDiff:'Medium', msExamMode:false,
+  msCase:null, msQIndex:0, msAnswers:{}, msRevealed:{}, msLoading:false, msError:null,
+  // shared stats
+  score:{correct:0,total:0}, streak:0, bestStreak:0, history:[],
+  // cost tracking
+  cost: loadCostData(),
+};
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const getKey = () => localStorage.getItem('claude_api_key')||'';
+const saveKey = k => localStorage.setItem('claude_api_key',k);
+const clearKey = () => localStorage.removeItem('claude_api_key');
+const diffColor = d => d==='Easy'?'#4ade80':d==='Medium'?'#fbbf24':'#f87171';
+const pct = () => S.score.total>0?Math.round(S.score.correct/S.score.total*100):0;
+const domLabel = id => DOMAINS.find(d=>d.id===id)?.label||id;
+const domIcon  = id => DOMAINS.find(d=>d.id===id)?.icon||'📋';
+const setLabel = id => SETTINGS.find(s=>s.id===id)?.label||id;
+const setIcon  = id => SETTINGS.find(s=>s.id===id)?.icon||'🏥';
+
+function navigate(screen){
+  S.screen=screen;
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('nav-'+screen)?.classList.add('active');
+  updateBadge(); renderContent();
+  if(screen==='dq' && !S.dqQuestion && !S.dqLoading && getKey()) loadDomainQ();
+  if(screen==='ms' && !S.msCase && !S.msLoading && getKey()) loadMedScenario();
+}
+
+function updateBadge(){
+  const b=document.getElementById('header-badge');
+  if(!b) return;
+  if((S.screen==='dq'||S.screen==='ms') && S.score.total>0){
+    b.textContent=(S.streak>=2?'🔥'+S.streak+' · ':'')+pct()+'% ('+S.score.correct+'/'+S.score.total+')';
+  } else {
+    const rem=remaining();
+    b.textContent= rem>0 ? '$'+rem.toFixed(2)+' left' : 'Claude Sonnet';
+  }
+}
+function render(){updateBadge();renderContent();}
+function renderContent(){
+  const el=document.getElementById('content');
+  const map={home:renderHome,dq:renderDomainQuiz,ms:renderMedScenario,history:renderHistory,stats:renderStats,key:renderKeyScreen};
+  el.innerHTML=(map[S.screen]||renderHome)();
+  el.scrollTop=0;
+}
+
+// ── DOMAIN Q API ──────────────────────────────────────────────────────────────
+const DQ_PROMPT = (domain,tasks,diff) =>
+`You are a CCS exam question writer. AHIMA CCS Exam Content Outline (effective 05/01/2024).
+
+Generate ONE ${diff} multiple-choice question for:
+DOMAIN: ${domain}
+TASKS COVERED: ${tasks}
+DIFFICULTY: ${diff==='Easy'?'Single-step, straightforward knowledge check':diff==='Medium'?'Requires specific guideline knowledge':'Complex scenario, multiple guidelines, or tricky distractors'}
+
+Write a realistic clinical vignette or scenario relevant to this domain. Then ask a question testing one of the domain tasks.
+
+Reply ONLY with valid JSON (no markdown):
+{"question":"...","scenario":"...2-3 sentence clinical vignette or regulatory scenario...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A","explanation":"...cite specific guideline. Under 90 words.","guideline_ref":"...e.g. ICD-10-CM Official Guidelines Section I.C.9.a"}
+
+Rules: one correct answer, three plausible distractors reflecting common errors, complete JSON only.`;
+
+async function loadDomainQ(){
+  const key=getKey();
+  if(!key){S.dqError='No API key. Go to 🔑 KEY tab.';render();return;}
+  S.dqLoading=true;S.dqQuestion=null;S.dqSelected=null;S.dqRevealed=false;S.dqError=null;
+  updateBadge();renderContent();
+  const dom=DOMAINS.find(d=>d.id===S.dqDomain);
+  try{
+    const res=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        apiKey:key,
+        model:'claude-sonnet-4-5',
+        max_tokens:1500,
+        temperature:0.8,
+        system:'You are a CCS exam question generator. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation, no text before or after the JSON. Start your response with { and end with }.',
+        messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff)}]
+      })
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+    trackUsage(data.usage);
+    const raw=data.content?.[0]?.text||'';
+    if(!raw) throw new Error('Empty response from Claude. Raw: '+JSON.stringify(data));
+    let clean=raw.replace(/```json|```/g,'').trim();
+    const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
+    if(s===-1||e===-1) throw new Error('No JSON found. Claude said: '+raw.slice(0,200));
+    try{ S.dqQuestion=JSON.parse(clean.slice(s,e+1)); }
+    catch(pe){ throw new Error('JSON parse failed: '+pe.message+' — Raw: '+clean.slice(s,s+300)); }
+    S.dqLoading=false;
+  }catch(err){
+    S.dqLoading=false;
+    S.dqError=err.message?.includes('API_KEY')||err.message?.includes('401')
+      ?'Invalid API key. Check 🔑 KEY tab.'
+      :'Failed to generate question.\n'+err.message;
+  }
+  updateBadge();renderContent();
+}
+
+function dqSelect(letter){
+  if(S.dqRevealed) return;
+  S.dqSelected=letter;S.dqRevealed=true;
+  const correct=letter===S.dqQuestion.correct;
+  S.score.correct+=correct?1:0;S.score.total+=1;
+  S.streak=correct?S.streak+1:0;
+  if(S.streak>S.bestStreak)S.bestStreak=S.streak;
+  S.history.unshift({question:S.dqQuestion.question,mode:'Domain Q',
+    tag:domIcon(S.dqDomain)+' '+domLabel(S.dqDomain),
+    diff:S.dqDiff,correct,answer:letter,correctAnswer:S.dqQuestion.correct});
+  if(S.history.length>100)S.history.pop();
+  updateBadge();renderContent();
+}
+
+// ── MED SCENARIO API ──────────────────────────────────────────────────────────
+const MS_PROMPT = (setting,rules,diff) =>
+`You are a CCS exam question writer following the official AHIMA CCS Exam Content Outline (effective 05/01/2024).
+
+Generate a ${diff} difficulty Medical Scenario case for the ${setting} setting, exactly like the real CCS exam format.
+
+SETTING: ${setting}
+CODING RULES: ${rules}
+DIFFICULTY: ${diff === 'Easy' ? 'Straightforward single diagnosis, common procedure' : diff === 'Medium' ? 'Requires specific guideline knowledge, laterality, or sequencing' : 'Complex multi-condition, complication coding, or tricky distractors'}
+
+Provide realistic clinical documentation followed by exactly 3 coding questions about the SAME case.
+
+REQUIRED DOCUMENTS for ${setting}:
+${setting==='Inpatient' ? `- HISTORY AND PHYSICAL: Reason for Admission, History of Present Illness (3-4 sentences), Past Medical History, Physical Examination findings, Impression
+- OPERATIVE REPORT (if surgery): Preoperative Diagnosis, Postoperative Diagnosis, Procedure performed, Anesthesia, detailed Procedure description (4-6 sentences)
+- DISCHARGE SUMMARY: Principal Diagnosis, Secondary Diagnoses, Procedures Performed, Hospital Course (3-4 sentences), Discharge Condition` : ''}${setting==='Outpatient' ? `- HISTORY AND PHYSICAL: Chief Complaint, History of Present Illness (3-4 sentences), Past Medical History, Physical Examination, Impression, Plan
+- OPERATIVE/PROCEDURE REPORT: Preoperative Diagnosis, Postoperative Diagnosis, Procedure, Anesthesia, Procedure description (4-6 sentences)
+- PATHOLOGY REPORT (if applicable): Specimen, Gross Description, Microscopic Description, Final Diagnosis` : ''}${setting==='Emergency Department' ? `- EMERGENCY DEPARTMENT NOTE: Chief Complaint, History of Present Illness (3-4 sentences), Past Medical History, Review of Systems, Physical Examination (Vitals + findings), Medical Decision Making, Assessment, Plan, Disposition
+- DIAGNOSTIC RESULTS: Relevant lab values or imaging findings with interpretation` : ''}
+
+Then generate exactly 3 questions:
+Q1 — "${setting==='Inpatient'?'Choose the correct principal diagnosis code.':'Choose the correct first-listed diagnosis code.'}"
+      4 ICD-10-CM code choices (A-D) with realistic distractors (wrong specificity, laterality, or sequencing)
+Q2 — "Choose the correct procedure code(s)."
+      4 ${setting==='Inpatient'?'ICD-10-PCS':'CPT/HCPCS'} code choices with modifiers where applicable
+Q3 — A domain-specific question testing one of: POA assignment, MCC/CC impact on DRG, sequencing rule, modifier application, APC grouping, UHDDS compliance, or documentation query opportunity
+
+Reply with ONLY this JSON (no markdown, start with {, end with }):
+{"case_title":"e.g. Same-Day Surgery — Right Breast Lumpectomy with Sentinel Node Biopsy","setting":"${setting}","documents":[{"section":"HISTORY AND PHYSICAL","content":"REASON FOR ADMISSION: ...\nHISTORY OF PRESENT ILLNESS: ...\nPAST MEDICAL HISTORY: ...\nPHYSICAL EXAMINATION: ...\nIMPRESSION: ..."},{"section":"OPERATIVE REPORT","content":"PREOPERATIVE DIAGNOSIS: ...\nPOSTOPERATIVE DIAGNOSIS: ...\nPROCEDURE: ...\nANESTHESIA: ...\nPROCEDURE DESCRIPTION: ..."}],"questions":[{"qnum":1,"type":"${setting==='Inpatient'?'Principal Diagnosis Code':'First-Listed Diagnosis Code'}","question":"${setting==='Inpatient'?'Choose the correct principal diagnosis code.':'Choose the correct first-listed diagnosis code.'}","choices":{"A":"D05.11 — Intraductal carcinoma in situ, right breast","B":"C50.221 — Malignant neoplasm of upper-outer quadrant, right breast","C":"D05.12 — Intraductal carcinoma in situ, left breast","D":"C50.211 — Malignant neoplasm of upper-outer quadrant, left breast"},"correct":"A","explanation":"Explanation under 80 words citing specific guideline.","guideline_ref":"ICD-10-CM Official Guidelines Section I.C.2"},{"qnum":2,"type":"Procedure Code","question":"Choose the correct procedure code(s).","choices":{"A":"19301-RT","B":"19302-RT","C":"19307-LT","D":"19300-RT"},"correct":"A","explanation":"Explanation under 80 words.","guideline_ref":"CPT Surgery Guidelines"},{"qnum":3,"type":"Coding/Compliance","question":"...specific question about this case...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"C","explanation":"Explanation under 80 words.","guideline_ref":"..."}]}
+
+Critical: use realistic accurate ICD-10-CM/CPT/ICD-10-PCS codes, complete valid JSON only, explanations under 80 words each.`;
+
+async function loadMedScenario(){
+  const key=getKey();
+  if(!key){S.msError='No API key. Go to 🔑 KEY tab.';render();return;}
+  S.msLoading=true;S.msCase=null;S.msQIndex=0;S.msAnswers={};S.msRevealed={};S.msError=null;
+  updateBadge();renderContent();
+  const setting=S.msExamMode
+    ?SETTINGS[Math.floor(Math.random()*SETTINGS.length)]
+    :(SETTINGS.find(s=>s.id===S.msSetting)||SETTINGS[0]);
+  if(S.msExamMode)S.msSetting=setting.id;
+  try{
+    const res=await fetch('/api/claude',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        apiKey:key,
+        model:'claude-sonnet-4-5',
+        max_tokens:3500,
+        temperature:0.8,
+        system:'You are a CCS exam medical scenario generator. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation, no text before or after the JSON. Start your response with { and end with }.',
+        messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,S.msDiff)}]
+      })
+    });
+    const data=await res.json();
+    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+    trackUsage(data.usage);
+    const raw=data.content?.[0]?.text||'';
+    if(!raw) throw new Error('Empty response from Claude. Raw: '+JSON.stringify(data));
+    let clean=raw.replace(/```json|```/g,'').trim();
+    const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
+    if(s===-1||e===-1) throw new Error('No JSON found. Claude said: '+raw.slice(0,200));
+    try{ S.msCase=JSON.parse(clean.slice(s,e+1)); }
+    catch(pe){ throw new Error('JSON parse failed: '+pe.message+' — Raw: '+clean.slice(s,s+300)); }
+    S.msLoading=false;
+  }catch(err){
+    S.msLoading=false;
+    S.msError=err.message?.includes('API_KEY')||err.message?.includes('401')
+      ?'Invalid API key. Check 🔑 KEY tab.'
+      :'Failed to generate scenario.\n'+err.message;
+  }
+  updateBadge();renderContent();
+}
+
+function msSelect(letter){
+  const qi=S.msQIndex;
+  if(S.msRevealed[qi]) return;
+  S.msAnswers[qi]=letter;S.msRevealed[qi]=true;
+  const q=S.msCase.questions[qi];
+  const correct=letter===q.correct;
+  S.score.correct+=correct?1:0;S.score.total+=1;
+  S.streak=correct?S.streak+1:0;
+  if(S.streak>S.bestStreak)S.bestStreak=S.streak;
+  S.history.unshift({question:q.question,mode:'Med Scenario',
+    tag:setIcon(S.msSetting)+' '+setLabel(S.msSetting)+' – '+q.type,
+    diff:S.msDiff,correct,answer:letter,correctAnswer:q.correct});
+  if(S.history.length>100)S.history.pop();
+  updateBadge();renderContent();
+}
+
+function msNext(){
+  const total=S.msCase?.questions?.length||3;
+  if(S.msQIndex<total-1){S.msQIndex++;renderContent();}
+  else loadMedScenario();
+}
+
+// ── RENDER HELPERS ────────────────────────────────────────────────────────────
+function renderScoreBar(){
+  const p=pct(),pColor=S.score.total===0?'#7eb8f7':p>=70?'#4ade80':'#f87171';
+  return `<div class="score-bar">
+    <div class="score-item"><div class="score-num">${S.score.total}</div><div class="score-desc">TOTAL</div></div>
+    <div class="score-item"><div class="score-num" style="color:#4ade80">${S.score.correct}</div><div class="score-desc">CORRECT</div></div>
+    <div class="score-item"><div class="score-num" style="color:${pColor}">${p}%</div><div class="score-desc">SCORE</div></div>
+    ${S.streak>=2?`<div class="score-item"><div class="score-num" style="color:#fbbf24">🔥${S.streak}</div><div class="score-desc">STREAK</div></div>`:''}
+  </div>`;
+}
+
+function renderChoices(choices,revealed,selected,correct,onSelect){
+  return ['A','B','C','D'].map(l=>{
+    let cls='';
+    if(revealed){cls=l===correct?'correct':l===selected?'wrong':'dim';}
+    return `<button class="choice ${cls}" onclick="${onSelect}('${l}')">
+      <span class="choice-letter">${l}</span>
+      <span class="choice-text">${choices[l]}</span>
+    </button>`;
+  }).join('');
+}
+
+function renderExplanation(revealed,selected,correct,explanation,guideline_ref){
+  if(!revealed) return '';
+  const ok=selected===correct;
+  return `<div class="explanation ${ok?'ok':'ng'}">
+    <div class="exp-title">${ok?'✓ CORRECT':'✗ INCORRECT'} — EXPLANATION</div>
+    <div class="exp-text">${explanation}</div>
+    ${guideline_ref?`<div class="guide-ref">📖 ${guideline_ref}</div>`:''}
+  </div>`;
+}
+
+// ── SCREENS ───────────────────────────────────────────────────────────────────
+function renderHome(){
+  const hasKey=!!getKey();
+  return `
+  <div class="hero">
+    <div class="hero-cross"><div class="hero-ring"></div></div>
+    <h1>CCS Exam Practice</h1>
+    <p class="hero-sub">Official AHIMA CCS Content Outline 2024<br/>Powered by Claude Sonnet</p>
+    <div id="countdown-banner" style="margin-top:10px;background:#1a1f35;border:1px solid #2a3a55;border-radius:10px;padding:8px 14px;font-size:12px;color:#fbbf24;font-weight:700;"></div>
+    <div onclick="navigate('key')" style="margin-top:8px;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 14px;cursor:pointer;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;">
+        <span style="font-size:11px;color:var(--muted);">💳 API Budget</span>
+        <span style="font-size:11px;color:var(--text);font-weight:700;" id="budget-text"></span>
+      </div>
+      <div style="background:var(--border);border-radius:99px;height:4px;overflow:hidden;">
+        <div id="budget-bar" style="height:100%;border-radius:99px;background:linear-gradient(90deg,#4ade80,#fbbf24);transition:width .5s;"></div>
+      </div>
+    </div>
+  </div>
+  ${!hasKey?`<div class="no-key-banner">⚠️ API key required<br/><button class="no-key-btn" onclick="navigate('key')">Set Up Gemini API Key →</button></div>`:''}
+  <div class="section-label">Choose Practice Mode</div>
+  <div class="mode-grid">
+    <div class="mode-card" onclick="navigate('dq')">
+      <div class="mode-card-icon">📚</div>
+      <div class="mode-card-title">Domain Questions</div>
+      <div class="mode-card-desc">5 knowledge domains · Standard multiple choice · Tests rules, compliance, queries, IT</div>
+    </div>
+    <div class="mode-card" onclick="navigate('ms')">
+      <div class="mode-card-icon">🏥</div>
+      <div class="mode-card-title">Medical Scenarios</div>
+      <div class="mode-card-desc">Full clinical docs · H&P, Op Report, Path · Code from real patient cases</div>
+    </div>
+  </div>
+  <div class="section-label">Exam Structure (AHIMA 2024)</div>
+  <div style="padding:0 14px 32px;">
+    <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px;">
+      <div style="font-size:12px;color:var(--muted);line-height:1.8;">
+        <div>📚 <b style="color:var(--text)">Domain 1</b> Coding Knowledge &amp; Skills — <span style="color:#fbbf24">39–41%</span></div>
+        <div>📄 <b style="color:var(--text)">Domain 2</b> Coding Documentation — <span style="color:#fbbf24">18–22%</span></div>
+        <div>💬 <b style="color:var(--text)">Domain 3</b> Provider Queries — <span style="color:#fbbf24">9–11%</span></div>
+        <div>⚖️ <b style="color:var(--text)">Domain 4</b> Regulatory Compliance — <span style="color:#fbbf24">18–22%</span></div>
+        <div>💻 <b style="color:var(--text)">Domain 5</b> Information Technologies — <span style="color:#fbbf24">9–11%</span></div>
+        <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);">
+          🛏️ <b style="color:var(--text)">Inpatient</b> · 🏨 <b style="color:var(--text)">Outpatient</b> · 🚨 <b style="color:var(--text)">ED</b> — <span style="color:#7eb8f7">33.3% each in Medical Scenarios</span>
+        </div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderDomainQuiz(){
+  const dom=DOMAINS.find(d=>d.id===S.dqDomain);
+  const setupHtml=`
+    ${renderScoreBar()}
+    <div class="context-tags">
+      <span class="ctag" style="background:${diffColor(S.dqDiff)}22;color:${diffColor(S.dqDiff)}">${S.dqDiff}</span>
+      <span class="ctag" style="background:#7eb8f722;color:#7eb8f7">${domIcon(S.dqDomain)} ${domLabel(S.dqDomain)}</span>
+    </div>`;
+
+  if(S.dqLoading) return `<div class="quiz-body">${setupHtml}<div class="load-box"><div class="spinner"></div><div class="load-text">Generating domain question…</div></div></div>`;
+  if(S.dqError&&!S.dqQuestion) return `<div class="quiz-body">${setupHtml}<div class="error-box">${S.dqError.replace(/\n/g,'<br/>')}<br/><button class="retry-btn" onclick="S.dqError=null;loadDomainQ()">Try Again</button></div></div>`;
+  if(!S.dqQuestion) return `<div class="quiz-body">${setupHtml}</div>`;
+
+  const q=S.dqQuestion;
+  return `<div class="quiz-body">
+    ${setupHtml}
+    <div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+      <select onchange="S.dqDomain=this.value;render()" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;">
+        ${DOMAINS.map(d=>`<option value="${d.id}" ${S.dqDomain===d.id?'selected':''}>${d.icon} ${d.label} (${d.pct})</option>`).join('')}
+      </select>
+      <select onchange="S.dqDiff=this.value;render()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:${diffColor(S.dqDiff)};font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;">
+        ${['Easy','Medium','Hard'].map(d=>`<option value="${d}" ${S.dqDiff===d?'selected':''}>${d}</option>`).join('')}
+      </select>
+    </div>
+    <div class="q-card">
+      ${q.scenario?`<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:8px;padding:11px;margin-bottom:11px;font-size:13px;color:var(--muted);line-height:1.6;font-style:italic;">${q.scenario}</div>`:''}
+      <div class="q-text">${q.question}</div>
+    </div>
+    ${renderChoices(q.choices,S.dqRevealed,S.dqSelected,q.correct,'dqSelect')}
+    ${renderExplanation(S.dqRevealed,S.dqSelected,q.correct,q.explanation,q.guideline_ref)}
+    ${S.dqRevealed?`<button class="next-btn" onclick="S.dqQuestion=null;loadDomainQ()">Next Question →</button>`:''}
+  </div>`;
+}
+
+function renderMedScenario(){
+  const setting=SETTINGS.find(s=>s.id===S.msSetting);
+  const setupHtml=`
+    ${renderScoreBar()}
+    <div class="context-tags">
+      <span class="ctag" style="background:${diffColor(S.msDiff)}22;color:${diffColor(S.msDiff)}">${S.msDiff}</span>
+      <span class="ctag" style="background:#7eb8f722;color:#7eb8f7">${setIcon(S.msSetting)} ${setLabel(S.msSetting)}</span>
+      ${S.msExamMode?`<span class="ctag" style="background:#fbbf2422;color:#fbbf24">🎲 Exam Mode</span>`:''}
+    </div>`;
+
+  if(S.msLoading) return `<div class="quiz-body">${setupHtml}<div class="load-box"><div class="spinner"></div><div class="load-text">Generating medical scenario…<br/><span style="font-size:11px;color:var(--dim)">Building clinical documents…</span></div></div></div>`;
+  if(S.msError&&!S.msCase) return `<div class="quiz-body">${setupHtml}<div class="error-box">${S.msError.replace(/\n/g,'<br/>')}<br/><button class="retry-btn" onclick="S.msError=null;loadMedScenario()">Try Again</button></div></div>`;
+
+  // Controls bar
+  const controls=`<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+    <select onchange="S.msSetting=this.value;S.msExamMode=false;render()" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;${S.msExamMode?'opacity:0.5;pointer-events:none;':''}">
+      ${SETTINGS.map(s=>`<option value="${s.id}" ${S.msSetting===s.id?'selected':''}>${s.icon} ${s.label}</option>`).join('')}
+    </select>
+    <select onchange="S.msDiff=this.value;render()" style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:${diffColor(S.msDiff)};font-family:'DM Sans',sans-serif;font-size:12px;font-weight:700;">
+      ${['Easy','Medium','Hard'].map(d=>`<option value="${d}" ${S.msDiff===d?'selected':''}>${d}</option>`).join('')}
+    </select>
+    <button onclick="S.msExamMode=!S.msExamMode;render()" style="background:${S.msExamMode?'#1d3a5f':'var(--surface)'};border:1px solid ${S.msExamMode?'var(--blue)':'var(--border)'};border-radius:8px;padding:7px 10px;color:${S.msExamMode?'#7eb8f7':'var(--dim)'};font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:700;white-space:nowrap;">🎲 Exam</button>
+  </div>`;
+
+  if(!S.msCase) return `<div class="quiz-body">${setupHtml}${controls}</div>`;
+
+  const c=S.msCase;
+  const qi=S.msQIndex;
+  const q=c.questions[qi];
+  const total=c.questions.length;
+
+  // Render documents
+  const docsHtml=c.documents.map(doc=>`
+    <div class="doc-section">
+      <div class="doc-section-title">${doc.section}</div>
+      ${doc.content.split('\\n').map(line=>{
+        const colonIdx=line.indexOf(':');
+        if(colonIdx>0&&colonIdx<40&&line===line.trimStart()){
+          return `<div class="doc-line"><span class="doc-label">${line.slice(0,colonIdx)}:</span>${line.slice(colonIdx+1)}</div>`;
+        }
+        return `<div class="doc-line">${line}</div>`;
+      }).join('')}
+    </div>`).join('');
+
+  // Q progress dots
+  const dots=c.questions.map((_,i)=>
+    `<div class="q-dot ${i<qi?'done':i===qi?'active':''}"></div>`).join('');
+
+  return `<div class="quiz-body">
+    ${setupHtml}${controls}
+    <div class="case-card">
+      <div class="case-header">
+        <span class="case-title">${c.case_title}</span>
+        <span class="case-setting">${setIcon(S.msSetting)} ${c.setting}</span>
+      </div>
+      <div class="case-docs">${docsHtml}</div>
+      <div class="case-hint">↕ Scroll to read full documents</div>
+    </div>
+    <div class="q-progress">${dots}</div>
+    <div class="sub-q-header">
+      <div class="sub-q-num">Q${qi+1}</div>
+      <div class="sub-q-type">${q.type}</div>
+    </div>
+    <div class="q-card"><div class="q-text">${q.question}</div></div>
+    ${renderChoices(q.choices,S.msRevealed[qi],S.msAnswers[qi],q.correct,'msSelect')}
+    ${renderExplanation(S.msRevealed[qi],S.msAnswers[qi],q.correct,q.explanation,q.guideline_ref)}
+    ${S.msRevealed[qi]?`<button class="next-btn" onclick="msNext()">${qi<total-1?'Next Sub-Question →':'New Case →'}</button>`:''}
+  </div>`;
+}
+
+function renderHistory(){
+  return `<div class="hist-body">
+    <div class="section-label">Answer History (${S.history.length})</div>
+    ${!S.history.length?`<div class="empty-state"><div style="font-size:44px;margin-bottom:10px">📝</div><div>No answers yet. Start practicing!</div></div>`
+    :S.history.map(h=>`
+      <div class="hist-item ${h.correct?'c':'w'}">
+        <div class="hist-q">${h.question}</div>
+        <div class="hist-meta">${h.correct?'✓ Correct':'✗ Wrong (ans: '+h.correctAnswer+')'} · ${h.diff} · ${h.tag||''} · ${h.mode}</div>
+      </div>`).join('')}
+  </div>`;
+}
+
+function renderStats(){
+  const total=S.history.length,correct=S.history.filter(h=>h.correct).length;
+  const acc=total>0?Math.round(correct/total*100):0;
+  const dq=S.history.filter(h=>h.mode==='Domain Q');
+  const ms=S.history.filter(h=>h.mode==='Med Scenario');
+  const dqAcc=dq.length>0?Math.round(dq.filter(h=>h.correct).length/dq.length*100):0;
+  const msAcc=ms.length>0?Math.round(ms.filter(h=>h.correct).length/ms.length*100):0;
+  return `<div class="stats-body">
+    <div class="section-label">Overall Performance</div>
+    <div class="stat-card"><div class="stat-big">${acc}%</div><div class="stat-label">OVERALL ACCURACY</div><div class="progress-bar"><div class="progress-fill" style="width:${acc}%"></div></div></div>
+    <div class="stat-row">
+      <div class="stat-small"><div class="stat-med" style="color:#7eb8f7">${total}</div><div class="stat-label">ANSWERED</div></div>
+      <div class="stat-small"><div class="stat-med" style="color:#fbbf24">🔥${S.bestStreak}</div><div class="stat-label">BEST STREAK</div></div>
+    </div>
+    <div class="section-label">By Section</div>
+    <div class="stat-row">
+      <div class="stat-small">
+        <div style="font-size:20px;margin-bottom:4px">📚</div>
+        <div class="stat-med" style="color:var(--blue)">${dqAcc}%</div>
+        <div class="stat-label">DOMAIN Q</div>
+        <div style="font-size:10px;color:var(--dim)">${dq.length} answered</div>
+      </div>
+      <div class="stat-small">
+        <div style="font-size:20px;margin-bottom:4px">🏥</div>
+        <div class="stat-med" style="color:var(--blue)">${msAcc}%</div>
+        <div class="stat-label">MED SCENARIO</div>
+        <div style="font-size:10px;color:var(--dim)">${ms.length} answered</div>
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderKeyScreen(){
+  const saved=getKey();
+  const masked=saved?saved.slice(0,8)+'••••••••••••'+saved.slice(-4):'';
+  return `<div class="key-screen">
+    <div class="key-hero"><span class="key-icon">🔑</span><div class="key-title">Gemini API Key</div><p class="key-sub">Stored only on this device.<br/>Sent only to Anthropic's API.</p></div>
+    ${saved?`
+      <div class="key-saved"><span>✓ Key saved: ${masked}</span><button class="key-clear" onclick="clearKey();render()">Remove</button></div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:11px;font-weight:700;color:var(--dim);letter-spacing:1.5px;">USAGE & COST TRACKER</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center;">
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;">
+            <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#f87171;">$${totalSpent().toFixed(3)}</div>
+            <div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;">SPENT</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;">
+            <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#4ade80;">$${remaining().toFixed(2)}</div>
+            <div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;">REMAINING</div>
+          </div>
+          <div style="background:var(--surface2);border-radius:8px;padding:10px;">
+            <div style="font-family:'DM Serif Display',serif;font-size:22px;color:#7eb8f7;">$${S.cost.budget.toFixed(0)}</div>
+            <div style="font-size:9px;color:var(--dim);letter-spacing:1px;margin-top:2px;">BUDGET</div>
+          </div>
+        </div>
+        <div style="background:var(--border);border-radius:99px;height:6px;overflow:hidden;">
+          <div style="height:100%;border-radius:99px;background:linear-gradient(90deg,#4ade80,#fbbf24,#f87171);width:${Math.min(100,totalSpent()/S.cost.budget*100).toFixed(1)}%;transition:width .5s;"></div>
+        </div>
+        <div style="font-size:11px;color:var(--dim);text-align:center;">${(S.cost.inputTokens/1000).toFixed(1)}K input · ${(S.cost.outputTokens/1000).toFixed(1)}K output tokens used</div>
+        <div style="display:flex;gap:8px;align-items:center;">
+          <span style="font-size:12px;color:var(--muted);flex-shrink:0;">Budget $</span>
+          <input type="number" value="${S.cost.budget}" min="1" max="500" step="5"
+            style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;"
+            onchange="S.cost.budget=parseFloat(this.value)||50;saveCostData();render()"/>
+          <button onclick="S.cost.inputTokens=0;S.cost.outputTokens=0;saveCostData();render()"
+            style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:7px 12px;color:var(--dim);font-family:'DM Sans',sans-serif;font-size:12px;cursor:pointer;">Reset</button>
+        </div>
+      </div>
+      <button class="key-save" onclick="navigate('home')">Go to Practice →</button>
+    `:`
+      <div class="key-steps">
+        <div class="key-step"><span class="step-num">1</span><span class="step-text">Go to <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a></span></div>
+        <div class="key-step"><span class="step-num">2</span><span class="step-text">Sign up / sign in → add $10–20 credit (no subscription)</span></div>
+        <div class="key-step"><span class="step-num">3</span><span class="step-text">Go to <b style="color:var(--text)">API Keys</b> → Create Key</span></div>
+        <div class="key-step"><span class="step-num">4</span><span class="step-text">Copy and paste below (starts with sk-ant-...)</span></div>
+      </div>
+      <div style="background:#1a1f35;border:1px solid #2a3a55;border-radius:10px;padding:11px 13px;font-size:11px;color:var(--muted);line-height:1.6;">
+        💡 <b style="color:var(--text)">Budget tip:</b> Load $50 for 4 weeks of heavy prep (~2,800 questions). Domain Q ≈ $0.009 each · Med Scenario ≈ $0.026 each. Credits never expire.
+      </div>
+      <div class="key-input-wrap">
+        <input class="key-input" id="key-field" type="password" placeholder="sk-ant-..."
+          oninput="document.getElementById('save-btn').disabled=!this.value.trim()"
+          onkeydown="if(event.key==='Enter')saveKeyAndGo()"/>
+        <button class="key-toggle" onclick="var f=document.getElementById('key-field');f.type=f.type==='password'?'text':'password'">👁</button>
+      </div>
+      <button class="key-save" id="save-btn" disabled onclick="saveKeyAndGo()">Save & Start Practicing</button>
+      <p class="key-note">Claude Sonnet · Pay per use · ~$44 for full 4-week exam prep</p>
+    `}
+  </div>`;
+}
+
+function saveKeyAndGo(){
+  const val=document.getElementById('key-field')?.value?.trim();
+  if(!val) return;
+  saveKey(val);navigate('home');
+}
+
+// ── INIT ──────────────────────────────────────────────────────────────────────
+function updateCountdown(){
+  const exam=new Date('2026-06-20T08:00:00');
+  const now=new Date();
+  const diff=exam-now;
+  const el=document.getElementById('countdown-banner');
+  if(el){
+    if(diff<=0){el.textContent='🎓 Exam Day! Good luck!';}
+    else{
+      const days=Math.floor(diff/86400000);
+      const hrs=Math.floor((diff%86400000)/3600000);
+      el.innerHTML=`⏳ ${days} days ${hrs} hrs until CCS Exam — June 20, 2026`;
+    }
+  }
+  // Update budget bar on home screen
+  const bt=document.getElementById('budget-text');
+  const bb=document.getElementById('budget-bar');
+  if(bt&&bb){
+    const spent=totalSpent(), rem=remaining(), pctUsed=Math.min(100,spent/S.cost.budget*100);
+    bt.textContent='$'+rem.toFixed(2)+' of $'+S.cost.budget+' left';
+    bb.style.width=pctUsed.toFixed(1)+'%';
+    bb.style.background=pctUsed>80?'#f87171':pctUsed>50?'#fbbf24':'#4ade80';
+  }
+}
+setInterval(updateCountdown,60000);
+
+window.addEventListener('load',()=>{
+  setTimeout(()=>{
+    document.getElementById('splash').classList.add('hide');
+    setTimeout(()=>document.getElementById('splash').remove(),600);
+  },1800);
+  if(!getKey()) S.screen='key';
+  document.getElementById('nav-'+(S.screen==='key'?'key':S.screen))?.classList.add('active');
+  render();
+  updateCountdown();
+});
+if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+</script>
+</body>
+</html>
