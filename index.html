@@ -203,6 +203,98 @@ h1{font-family:'DM Serif Display',serif;font-size:24px;color:#fff;margin-bottom:
 .key-note{font-size:11px;color:var(--dim);text-align:center;line-height:1.5;}
 .key-saved{background:#0d1f0d;border:1px solid #1a3a1a;border-radius:10px;padding:11px 14px;display:flex;align-items:center;gap:10px;font-size:12px;color:#86efac;}
 .key-clear{margin-left:auto;background:none;border:1px solid #3a1a1a;border-radius:6px;padding:3px 9px;color:var(--red);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;}
+
+/* ── DESKTOP (≥768px) ────────────────────────────────────────────────────── */
+@media(min-width:768px){
+  /* Layout: CSS grid — sidebar nav + header/content */
+  #app{
+    max-width:none;
+    display:grid;
+    grid-template-columns:220px 1fr;
+    grid-template-rows:auto 1fr;
+  }
+  header{
+    grid-column:2;grid-row:1;
+    padding:16px 32px;
+  }
+  #content{
+    grid-column:2;grid-row:2;
+    overflow-y:auto;
+  }
+  /* Sidebar nav */
+  nav{
+    grid-column:1;grid-row:1/3;
+    flex-direction:column;
+    height:100dvh;
+    position:sticky;top:0;
+    border-right:1px solid var(--border);border-top:none;
+    padding:0 0 16px;
+    gap:2px;
+    overflow-y:auto;
+  }
+  nav::before{
+    content:'CCS PREP';
+    font-family:'DM Serif Display',serif;
+    font-size:17px;color:var(--blue);letter-spacing:1px;
+    display:block;
+    padding:20px 18px 16px;
+    border-bottom:1px solid var(--border);
+    margin-bottom:8px;
+  }
+  .nav-btn{
+    flex-direction:row;justify-content:flex-start;
+    padding:10px 16px;gap:12px;
+    font-size:12px;letter-spacing:.5px;
+    border-radius:8px;margin:0 8px;
+    flex:none;width:calc(100% - 16px);
+  }
+  .nav-icon{font-size:17px;}
+  .logo{display:none;} /* sidebar replaces mobile header logo */
+
+  /* Content padding */
+  .quiz-body{padding:20px 32px;max-width:900px;}
+  .stats-body{padding:20px 32px;max-width:900px;}
+  .hist-body{padding:20px 32px 40px;max-width:900px;}
+  .hero{padding:44px 48px 24px;}
+  .section-label{padding:20px 32px 8px;}
+  .mode-grid{padding:0 32px;grid-template-columns:1fr 1fr 1fr;}
+  .dom-list,.diff-row{padding:0 32px;}
+  .start-btn{width:calc(100% - 64px);margin:16px 32px 40px;}
+  .key-screen{padding:40px;max-width:560px;margin:0 auto;}
+  .no-key-banner{margin:0 32px 4px;}
+
+  /* Slightly larger type */
+  .q-text{font-size:16px;}
+  .choice-text{font-size:15px;}
+
+  /* Stats — domain rows in 2-col grid */
+  .domains-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  .settings-grid{grid-template-columns:1fr 1fr 1fr;}
+
+  /* Med Scenario — docs left, Q right */
+  .ms-quiz-body{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    column-gap:24px;
+    max-width:none;
+    padding:20px 32px;
+  }
+  .ms-quiz-body .score-bar{grid-column:1/-1;}
+  .ms-quiz-body .context-tags{grid-column:1/-1;}
+  .ms-quiz-body .controls-bar{grid-column:1/-1;}
+  .ms-quiz-body .case-card{
+    grid-column:1;
+    position:sticky;top:12px;
+    max-height:calc(100dvh - 130px);
+    display:flex;flex-direction:column;
+  }
+  .ms-quiz-body .case-docs{
+    flex:1;overflow-y:auto;
+    max-height:none;
+  }
+  .ms-quiz-body .case-hint{display:none;}
+  .ms-right{grid-column:2;}
+}
 </style>
 </head>
 <body>
@@ -595,7 +687,7 @@ function renderMedScenario(){
   if(S.msError&&!S.msCase) return `<div class="quiz-body">${setupHtml}<div class="error-box">${S.msError.replace(/\n/g,'<br/>')}<br/><button class="retry-btn" onclick="S.msError=null;loadMedScenario()">Try Again</button></div></div>`;
 
   // Controls bar
-  const controls=`<div style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
+  const controls=`<div class="controls-bar" style="display:flex;gap:8px;margin-bottom:10px;align-items:center;">
     <select onchange="S.msSetting=this.value;S.msExamMode=false;render()" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;${S.msExamMode?'opacity:0.5;pointer-events:none;':''}">
       ${SETTINGS.map(s=>`<option value="${s.id}" ${S.msSetting===s.id?'selected':''}>${s.icon} ${s.label}</option>`).join('')}
     </select>
@@ -629,7 +721,7 @@ function renderMedScenario(){
   const dots=c.questions.map((_,i)=>
     `<div class="q-dot ${i<qi?'done':i===qi?'active':''}"></div>`).join('');
 
-  return `<div class="quiz-body">
+  return `<div class="quiz-body ms-quiz-body">
     ${setupHtml}${controls}
     <div class="case-card">
       <div class="case-header">
@@ -639,15 +731,17 @@ function renderMedScenario(){
       <div class="case-docs">${docsHtml}</div>
       <div class="case-hint">↕ Scroll to read full documents</div>
     </div>
-    <div class="q-progress">${dots}</div>
-    <div class="sub-q-header">
-      <div class="sub-q-num">Q${qi+1}</div>
-      <div class="sub-q-type">${q.type}</div>
+    <div class="ms-right">
+      <div class="q-progress">${dots}</div>
+      <div class="sub-q-header">
+        <div class="sub-q-num">Q${qi+1}</div>
+        <div class="sub-q-type">${q.type}</div>
+      </div>
+      <div class="q-card"><div class="q-text">${q.question}</div></div>
+      ${renderChoices(q.choices,S.msRevealed[qi],S.msAnswers[qi],q.correct,'msSelect')}
+      ${renderExplanation(S.msRevealed[qi],S.msAnswers[qi],q.correct,q.explanation,q.guideline_ref)}
+      ${S.msRevealed[qi]?`<button class="next-btn" onclick="msNext()">${qi<total-1?'Next Sub-Question →':'New Case →'}</button>`:''}
     </div>
-    <div class="q-card"><div class="q-text">${q.question}</div></div>
-    ${renderChoices(q.choices,S.msRevealed[qi],S.msAnswers[qi],q.correct,'msSelect')}
-    ${renderExplanation(S.msRevealed[qi],S.msAnswers[qi],q.correct,q.explanation,q.guideline_ref)}
-    ${S.msRevealed[qi]?`<button class="next-btn" onclick="msNext()">${qi<total-1?'Next Sub-Question →':'New Case →'}</button>`:''}
   </div>`;
 }
 
@@ -711,8 +805,8 @@ function renderStats(){
       <div class="stat-small"><div class="stat-med" style="color:#fbbf24">🔥${S.bestStreak}</div><div class="stat-label">BEST STREAK</div></div>
     </div>
 
-    ${domainRows?`<div class="section-label">Domain Q — by Domain</div>${domainRows}`:''}
-    ${settingRows?`<div class="section-label">Med Scenario — by Setting</div>${settingRows}`:''}
+    ${domainRows?`<div class="section-label">Domain Q — by Domain</div><div class="domains-grid">${domainRows}</div>`:''}
+    ${settingRows?`<div class="section-label">Med Scenario — by Setting</div><div class="domains-grid settings-grid">${settingRows}</div>`:''}
 
     <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
       <span>Answer History (${h.length})</span>
