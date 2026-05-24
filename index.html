@@ -355,7 +355,7 @@ function saveHistory(){
 let S = {
   screen:'home',
   // domain q
-  dqDomain:'d1', dqDiff:'Medium', dqBodySystem:null,
+  dqDomain:'d1', dqDiff:'Medium', dqBodySystem:null, dqSession:null,
   dqQuestion:null, dqSelected:null, dqRevealed:false, dqLoading:false, dqError:null,
   // medical scenario
   msSetting:'inpatient', msDiff:'Medium', msExamMode:false,
@@ -548,7 +548,11 @@ function dqSelect(letter){
     choices:S.dqQuestion.choices,wrong_reasons:S.dqQuestion.wrong_reasons,explanation:S.dqQuestion.explanation,guideline_ref:S.dqQuestion.guideline_ref});
   if(S.history.length>500)S.history.pop();
   saveHistory();
-  if(!_pf.dq&&!_pf.dqBusy) prefetchDomainQ(); // retry only if earlier prefetch failed
+  if(S.dqSession?.phase==='active') S.dqSession.results.push({correct,diff:S.dqDiff,domainId:S.dqDomain,
+    bodySystem:S.dqBodySystem,question:S.dqQuestion.question,user_answer:letter,
+    correct_answer:S.dqQuestion.correct,explanation:S.dqQuestion.explanation,
+    guideline_ref:S.dqQuestion.guideline_ref,choices:S.dqQuestion.choices,wrong_reasons:S.dqQuestion.wrong_reasons});
+  if(!S.dqSession&&!_pf.dq&&!_pf.dqBusy) prefetchDomainQ(); // retry only if earlier prefetch failed
   updateBadge();renderContent();
 }
 
@@ -726,8 +730,200 @@ function renderHome(){
   </div>`;
 }
 
+// ── SESSION MODE ──────────────────────────────────────────────────────────────
+let _sessSetupOpen=false, _sessConfigCount=10, _sessConfigDiff='Medium';
+
+const SESSION_FEEDBACK=[
+  {min:90,grade:'A',color:'var(--green)', label:'Excellent',  advice:'Solid command of this domain. Try Hard difficulty to sharpen edge cases.'},
+  {min:75,grade:'B',color:'#86efac',      label:'Good',       advice:'Good foundation. Review missed questions and focus on guideline references.'},
+  {min:60,grade:'C',color:'var(--yellow)',label:'Needs Work',  advice:'Review ICD-10 Official Guidelines for the areas where you missed. Try Medium difficulty again.'},
+  {min:0, grade:'D',color:'var(--red)',   label:'Study Needed',advice:'Focus on missed topics before moving harder. Review AHIMA coding guidelines section by section.'},
+];
+
+function startSession(){
+  const domain=document.getElementById('sess-domain')?.value||S.dqDomain;
+  const bodySystem=document.getElementById('sess-body')?.value||null;
+  S.dqSession={domain,bodySystem,diff:_sessConfigDiff,total:_sessConfigCount,current:0,results:[],phase:'active'};
+  S.dqDomain=domain; S.dqDiff=_sessConfigDiff; S.dqBodySystem=bodySystem||null;
+  S.dqQuestion=null; S.dqSelected=null; S.dqRevealed=false; S.dqError=null; _pf.dq=null;
+  _sessSetupOpen=false;
+  loadDomainQ();
+}
+
+function dqSessionNext(){
+  const sess=S.dqSession;
+  sess.current+=1;
+  if(sess.current>=sess.total){sess.phase='summary';_pf.dq=null;renderContent();return;}
+  dqNext();
+}
+
+function exitSession(){
+  S.dqSession=null; S.dqQuestion=null; S.dqSelected=null; S.dqRevealed=false; S.dqError=null; _pf.dq=null;
+  renderContent();
+}
+
+function startNewSession(){
+  const prev=S.dqSession;
+  S.dqSession={domain:prev.domain,bodySystem:prev.bodySystem,diff:prev.diff,total:prev.total,current:0,results:[],phase:'active'};
+  S.dqDomain=prev.domain; S.dqDiff=prev.diff; S.dqBodySystem=prev.bodySystem;
+  S.dqQuestion=null; S.dqSelected=null; S.dqRevealed=false; S.dqError=null; _pf.dq=null;
+  loadDomainQ();
+}
+
+function _sessSetupDiff(d){
+  _sessConfigDiff=d;
+  ['Easy','Medium','Hard'].forEach(x=>{
+    const b=document.getElementById('sess-diff-'+x); if(!b) return;
+    b.className=`diff-btn ${x.toLowerCase()}${x===d?' sel':''}`;
+  });
+}
+
+function _sessSetupCount(n){
+  _sessConfigCount=n;
+  [5,10,15,20].forEach(x=>{
+    const b=document.getElementById('sess-n-'+x); if(!b) return;
+    b.style.borderColor=x===n?'var(--blue)':'var(--border)';
+    b.style.color=x===n?'var(--blue)':'var(--dim)';
+    b.style.background=x===n?'#1a2a45':'var(--surface)';
+  });
+}
+
+function renderSessionSetupPanel(){
+  const open=_sessSetupOpen;
+  return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:10px;overflow:hidden;">
+    <button onclick="_sessSetupOpen=!_sessSetupOpen;renderContent()" style="width:100%;display:flex;align-items:center;justify-content:space-between;padding:11px 14px;background:none;border:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:13px;font-weight:700;cursor:pointer;text-align:left;">
+      <span>🎯 Session Mode</span>
+      <span style="font-size:11px;color:var(--dim)">${open?'▲ Hide':'▾ Configure'}</span>
+    </button>
+    ${open?`<div style="padding:0 14px 14px;border-top:1px solid var(--border);">
+      <div class="section-label" style="padding:10px 0 6px;">Domain</div>
+      <select id="sess-domain" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;margin-bottom:10px;">
+        ${DOMAINS.map(d=>`<option value="${d.id}" ${S.dqDomain===d.id?'selected':''}>${d.icon} ${d.label} (${d.pct})</option>`).join('')}
+      </select>
+      <div class="section-label" style="padding:0 0 6px;">Body System (optional)</div>
+      <select id="sess-body" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 10px;color:var(--muted);font-family:'DM Sans',sans-serif;font-size:12px;margin-bottom:10px;">
+        <option value="">All Body Systems (random)</option>
+        ${Object.keys(DQ_TOPIC_MAP).map(s=>`<option value="${s}" ${S.dqBodySystem===s?'selected':''}>${s}</option>`).join('')}
+      </select>
+      <div class="section-label" style="padding:0 0 6px;">Difficulty</div>
+      <div class="diff-row" style="padding:0 0 10px;">
+        ${['Easy','Medium','Hard'].map(d=>`<button id="sess-diff-${d}" class="diff-btn ${d.toLowerCase()}${_sessConfigDiff===d?' sel':''}" onclick="_sessSetupDiff('${d}')">${d}</button>`).join('')}
+      </div>
+      <div class="section-label" style="padding:0 0 6px;">Questions</div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;">
+        ${[5,10,15,20].map(n=>`<button id="sess-n-${n}" onclick="_sessSetupCount(${n})" style="flex:1;padding:10px 0;border-radius:10px;border:1.5px solid ${_sessConfigCount===n?'var(--blue)':'var(--border)'};background:${_sessConfigCount===n?'#1a2a45':'var(--surface)'};color:${_sessConfigCount===n?'var(--blue)':'var(--dim)'};font-weight:700;font-size:14px;font-family:'DM Sans',sans-serif;cursor:pointer;">${n}</button>`).join('')}
+      </div>
+      <button onclick="startSession()" class="start-btn" style="margin:0;width:100%;">Start ${_sessConfigCount}-Question Session →</button>
+    </div>`:''}
+  </div>`;
+}
+
+function renderSessionProgress(){
+  const sess=S.dqSession;
+  const dots=Array.from({length:sess.total},(_,i)=>{
+    if(i<sess.results.length) return `<div class="q-dot${sess.results[i].correct?' done':''}" style="${!sess.results[i].correct?'background:var(--red);border-color:var(--red)':''}"></div>`;
+    if(i===sess.current) return `<div class="q-dot active"></div>`;
+    return `<div class="q-dot"></div>`;
+  }).join('');
+  return `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+    <span style="font-size:11px;font-weight:700;color:var(--blue);letter-spacing:1px;">SESSION Q${sess.current+1} OF ${sess.total}</span>
+    <button onclick="exitSession()" style="background:none;border:1px solid var(--border);border-radius:6px;padding:3px 10px;color:var(--dim);font-size:11px;font-family:'DM Sans',sans-serif;cursor:pointer;">✕ Exit</button>
+  </div>
+  <div class="q-progress" style="margin-bottom:10px;">${dots}</div>`;
+}
+
+function renderSessionSummary(){
+  const sess=S.dqSession;
+  const results=sess.results;
+  const correctCount=results.filter(r=>r.correct).length;
+  const acc=Math.round(correctCount/sess.total*100);
+  const fb=SESSION_FEEDBACK.find(f=>acc>=f.min);
+
+  const bySystem={};
+  results.forEach(r=>{
+    const key=r.bodySystem?r.bodySystem.split(' (')[0]:'Mixed';
+    if(!bySystem[key]) bySystem[key]={correct:0,total:0};
+    bySystem[key].total+=1; bySystem[key].correct+=r.correct?1:0;
+  });
+  const weakRows=Object.entries(bySystem).filter(([,v])=>v.correct<v.total)
+    .sort((a,b)=>(a[1].correct/a[1].total)-(b[1].correct/b[1].total))
+    .map(([sys,data])=>{
+      const p=Math.round(data.correct/data.total*100);
+      const col=p<60?'var(--red)':'var(--yellow)';
+      return `<div style="background:var(--surface);border:1px solid var(--border);border-left:3px solid ${col};border-radius:10px;padding:10px 12px;margin-bottom:8px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <span style="font-size:12px;font-weight:700;color:var(--text);">🫀 ${sys}</span>
+          <span style="font-size:13px;font-weight:700;color:${col};">${p}% (${data.correct}/${data.total})</span>
+        </div>
+        <div style="background:var(--border);border-radius:99px;height:4px;overflow:hidden;">
+          <div style="height:100%;width:${p}%;background:${col};border-radius:99px;"></div>
+        </div>
+      </div>`;
+    }).join('');
+
+  const breakdownRows=results.map((r,i)=>`
+    <div style="display:flex;align-items:flex-start;gap:10px;padding:9px 0;border-bottom:1px solid var(--border);">
+      <span style="min-width:26px;height:26px;border-radius:50%;background:${r.correct?'#0d1f0d':'#1f0d0d'};border:1.5px solid ${r.correct?'var(--green)':'var(--red)'};display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:${r.correct?'var(--green)':'var(--red)'};flex-shrink:0;">${r.correct?'✓':'✗'}</span>
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:12px;color:var(--text);line-height:1.4;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">Q${i+1}: ${r.question}</div>
+        ${!r.correct?`<div style="font-size:11px;color:var(--dim);margin-top:2px;">Your: ${r.user_answer} · Correct: ${r.correct_answer}</div>`:''}
+      </div>
+    </div>`).join('');
+
+  const domLabel2=domLabel(sess.domain), domIc=domIcon(sess.domain);
+  return `<div class="quiz-body" style="padding-bottom:40px;">
+    <div style="text-align:center;padding:20px 0 10px;">
+      <div style="font-size:10px;font-weight:700;letter-spacing:2px;color:var(--dim);margin-bottom:8px;">SESSION COMPLETE</div>
+      <div style="font-family:'DM Serif Display',serif;font-size:56px;font-weight:700;color:${fb.color};line-height:1;">${acc}%</div>
+      <div style="font-size:14px;color:var(--muted);margin-top:4px;">${correctCount} of ${sess.total} correct</div>
+      <div style="margin-top:8px;display:inline-block;background:${fb.color}22;border:1px solid ${fb.color}55;border-radius:20px;padding:4px 14px;font-size:12px;font-weight:700;color:${fb.color};">${fb.label}</div>
+    </div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-bottom:12px;">
+      <span class="ctag" style="background:#7eb8f722;color:#7eb8f7;">${domIc} ${domLabel2}</span>
+      ${sess.bodySystem?`<span class="ctag" style="background:#a78bfa22;color:#a78bfa;">🫀 ${sess.bodySystem.split(' (')[0]}</span>`:''}
+      <span class="ctag" style="background:${diffColor(sess.diff)}22;color:${diffColor(sess.diff)};">${sess.diff}</span>
+    </div>
+    <div class="q-card" style="border-left:3px solid ${fb.color};background:${fb.color}0d;margin-bottom:10px;">
+      <div style="font-size:10px;font-weight:700;color:${fb.color};letter-spacing:1px;margin-bottom:6px;">💡 STUDY FOCUS</div>
+      <div style="font-size:13px;color:var(--muted);line-height:1.6;">${fb.advice}</div>
+    </div>
+    ${weakRows?`<div class="section-label">Areas to Review</div>${weakRows}`:''}
+    <div class="section-label">Question Breakdown</div>
+    <div class="q-card">${breakdownRows}</div>
+    <button class="next-btn" onclick="startNewSession()" style="margin-bottom:8px;">🔄 Start New Session</button>
+    <button onclick="exitSession()" style="width:100%;padding:13px;background:var(--surface);border:1.5px solid var(--border);border-radius:12px;color:var(--muted);font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;">← Back to Free Play</button>
+  </div>`;
+}
+
+function renderSessionActiveView(){
+  const sess=S.dqSession;
+  const isLast=sess.current+1>=sess.total;
+  const ctags=`<div class="context-tags">
+    <span class="ctag" style="background:${diffColor(sess.diff)}22;color:${diffColor(sess.diff)}">${sess.diff}</span>
+    <span class="ctag" style="background:#7eb8f722;color:#7eb8f7">${domIcon(sess.domain)} ${domLabel(sess.domain)}</span>
+    ${sess.bodySystem?`<span class="ctag" style="background:#a78bfa22;color:#a78bfa">🫀 ${sess.bodySystem.split(' (')[0]}</span>`:''}
+  </div>`;
+  if(S.dqLoading) return `<div class="quiz-body">${renderSessionProgress()}${ctags}<div class="load-box"><div class="spinner"></div><div class="load-text">Generating question…</div></div></div>`;
+  if(S.dqError&&!S.dqQuestion) return `<div class="quiz-body">${renderSessionProgress()}${ctags}<div class="error-box">${S.dqError.replace(/\n/g,'<br/>')}<br/><button class="retry-btn" onclick="S.dqError=null;loadDomainQ()">Try Again</button></div></div>`;
+  if(!S.dqQuestion) return `<div class="quiz-body">${renderSessionProgress()}${ctags}</div>`;
+  const q=S.dqQuestion;
+  return `<div class="quiz-body">
+    ${renderSessionProgress()}${ctags}
+    <div class="q-card">
+      ${q.scenario?`<div style="background:var(--surface2);border:1px solid var(--border);border-left:3px solid var(--blue);border-radius:8px;padding:11px;margin-bottom:11px;font-size:13px;color:var(--muted);line-height:1.6;font-style:italic;">${q.scenario}</div>`:''}
+      <div class="q-text">${q.question}</div>
+    </div>
+    ${renderChoices(q.choices,S.dqRevealed,S.dqSelected,q.correct,'dqSelect',q.wrong_reasons)}
+    ${renderExplanation(S.dqRevealed,S.dqSelected,q.correct,q.explanation,q.guideline_ref)}
+    ${S.dqRevealed?`<button class="next-btn" onclick="dqSessionNext()">${isLast?'Finish Session →':'Next Question →'}</button>`:''}
+  </div>`;
+}
+
 function renderDomainQuiz(){
-  const dom=DOMAINS.find(d=>d.id===S.dqDomain);
+  if(S.dqSession?.phase==='summary') return renderSessionSummary();
+  if(S.dqSession?.phase==='active') return renderSessionActiveView();
+
+  // ── Free-play mode ──
   const setupHtml=`
     ${renderScoreBar()}
     <div class="context-tags">
@@ -738,11 +934,12 @@ function renderDomainQuiz(){
 
   if(S.dqLoading) return `<div class="quiz-body">${setupHtml}<div class="load-box"><div class="spinner"></div><div class="load-text">Generating domain question…</div></div></div>`;
   if(S.dqError&&!S.dqQuestion) return `<div class="quiz-body">${setupHtml}<div class="error-box">${S.dqError.replace(/\n/g,'<br/>')}<br/><button class="retry-btn" onclick="S.dqError=null;loadDomainQ()">Try Again</button></div></div>`;
-  if(!S.dqQuestion) return `<div class="quiz-body">${setupHtml}</div>`;
+  if(!S.dqQuestion) return `<div class="quiz-body">${setupHtml}${renderSessionSetupPanel()}</div>`;
 
   const q=S.dqQuestion;
   return `<div class="quiz-body">
     ${setupHtml}
+    ${renderSessionSetupPanel()}
     <div style="display:flex;gap:8px;margin-bottom:8px;align-items:center;">
       <select onchange="S.dqDomain=this.value;render()" style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:12px;">
         ${DOMAINS.map(d=>`<option value="${d.id}" ${S.dqDomain===d.id?'selected':''}>${d.icon} ${d.label} (${d.pct})</option>`).join('')}
