@@ -424,35 +424,61 @@ Reply ONLY with valid JSON (no markdown, start with {, end with }):
 
 One correct answer, complete JSON only.`;
 
+// ── PREFETCH CACHE ────────────────────────────────────────────────────────────
+const _pf={dq:null,ms:null,dqBusy:false,msBusy:false};
+
+const DQ_SYS='You are a senior AHIMA-certified CCS coder and exam question writer. Accuracy is paramount — only include codes and guideline references you are certain are correct for FY2024. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start your response with { and end with }.';
+const MS_SYS='You are a senior AHIMA-certified CCS coder and exam question writer. Accuracy is paramount — every code must be a real FY2024 code, every guideline reference must be a real section, and the correct answer must be unambiguously correct. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start your response with { and end with }.';
+
+async function _callClaude(payload){
+  const res=await fetch('/api/claude',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const data=await res.json();
+  if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
+  const raw=data.content?.[0]?.text||'';
+  if(!raw) throw new Error('Empty response');
+  const clean=raw.replace(/```json|```/g,'').trim();
+  const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
+  if(s===-1||e===-1) throw new Error('No JSON in response');
+  return JSON.parse(clean.slice(s,e+1));
+}
+
+async function prefetchDomainQ(){
+  if(_pf.dqBusy) return;
+  const key=getKey(); if(!key) return;
+  const domainId=S.dqDomain, diff=S.dqDiff;
+  _pf.dqBusy=true; _pf.dq=null;
+  try{
+    const dom=DOMAINS.find(d=>d.id===domainId);
+    const q=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0.3,
+      system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,diff)}]});
+    _pf.dq={question:q,domainId,diff};
+  }catch(e){ _pf.dq=null; }
+  _pf.dqBusy=false;
+}
+
+async function prefetchMedScenario(){
+  if(_pf.msBusy) return;
+  const key=getKey(); if(!key) return;
+  const diff=S.msDiff, examMode=S.msExamMode;
+  let setting=examMode?SETTINGS[Math.floor(Math.random()*SETTINGS.length)]:(SETTINGS.find(s=>s.id===S.msSetting)||SETTINGS[0]);
+  _pf.msBusy=true; _pf.ms=null;
+  try{
+    const c=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:3500,temperature:0.3,
+      system:MS_SYS,messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,diff)}]});
+    _pf.ms={msCase:c,settingId:setting.id,diff};
+  }catch(e){ _pf.ms=null; }
+  _pf.msBusy=false;
+}
+
 async function loadDomainQ(){
   const key=getKey();
   if(!key){S.dqError='No API key. Go to 🔑 KEY tab.';render();return;}
   S.dqLoading=true;S.dqQuestion=null;S.dqSelected=null;S.dqRevealed=false;S.dqError=null;
   updateBadge();renderContent();
-  const dom=DOMAINS.find(d=>d.id===S.dqDomain);
   try{
-    const res=await fetch('/api/claude',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        apiKey:key,
-        model:'claude-sonnet-4-5',
-        max_tokens:1500,
-        temperature:0.3,
-        system:'You are a senior AHIMA-certified CCS coder and exam question writer. Accuracy is paramount — only include codes and guideline references you are certain are correct for FY2024. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start your response with { and end with }.',
-        messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff)}]
-      })
-    });
-    const data=await res.json();
-    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-
-    const raw=data.content?.[0]?.text||'';
-    if(!raw) throw new Error('Empty response from Claude. Raw: '+JSON.stringify(data));
-    let clean=raw.replace(/```json|```/g,'').trim();
-    const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
-    if(s===-1||e===-1) throw new Error('No JSON found. Claude said: '+raw.slice(0,200));
-    try{ S.dqQuestion=JSON.parse(clean.slice(s,e+1)); }
-    catch(pe){ throw new Error('JSON parse failed: '+pe.message+' — Raw: '+clean.slice(s,s+300)); }
+    const dom=DOMAINS.find(d=>d.id===S.dqDomain);
+    S.dqQuestion=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0.3,
+      system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff)}]});
     S.dqLoading=false;
   }catch(err){
     S.dqLoading=false;
@@ -461,6 +487,17 @@ async function loadDomainQ(){
       :'Failed to generate question.\n'+err.message;
   }
   updateBadge();renderContent();
+}
+
+function dqNext(){
+  if(_pf.dq&&_pf.dq.domainId===S.dqDomain&&_pf.dq.diff===S.dqDiff){
+    S.dqQuestion=_pf.dq.question;S.dqSelected=null;S.dqRevealed=false;S.dqError=null;S.dqLoading=false;
+    _pf.dq=null;
+    prefetchDomainQ();
+    updateBadge();renderContent();
+  }else{
+    _pf.dq=null;S.dqQuestion=null;loadDomainQ();
+  }
 }
 
 function dqSelect(letter){
@@ -476,6 +513,7 @@ function dqSelect(letter){
     choices:S.dqQuestion.choices,wrong_reasons:S.dqQuestion.wrong_reasons,explanation:S.dqQuestion.explanation,guideline_ref:S.dqQuestion.guideline_ref});
   if(S.history.length>500)S.history.pop();
   saveHistory();
+  prefetchDomainQ();
   updateBadge();renderContent();
 }
 
@@ -524,28 +562,8 @@ async function loadMedScenario(){
     :(SETTINGS.find(s=>s.id===S.msSetting)||SETTINGS[0]);
   if(S.msExamMode)S.msSetting=setting.id;
   try{
-    const res=await fetch('/api/claude',{
-      method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({
-        apiKey:key,
-        model:'claude-sonnet-4-5',
-        max_tokens:3500,
-        temperature:0.3,
-        system:'You are a senior AHIMA-certified CCS coder and exam question writer. Accuracy is paramount — every code must be a real FY2024 code, every guideline reference must be a real section, and the correct answer must be unambiguously correct. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start your response with { and end with }.',
-        messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,S.msDiff)}]
-      })
-    });
-    const data=await res.json();
-    if(data.error) throw new Error(data.error.message||JSON.stringify(data.error));
-
-    const raw=data.content?.[0]?.text||'';
-    if(!raw) throw new Error('Empty response from Claude. Raw: '+JSON.stringify(data));
-    let clean=raw.replace(/```json|```/g,'').trim();
-    const s=clean.indexOf('{'),e=clean.lastIndexOf('}');
-    if(s===-1||e===-1) throw new Error('No JSON found. Claude said: '+raw.slice(0,200));
-    try{ S.msCase=JSON.parse(clean.slice(s,e+1)); }
-    catch(pe){ throw new Error('JSON parse failed: '+pe.message+' — Raw: '+clean.slice(s,s+300)); }
+    S.msCase=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:3500,temperature:0.3,
+      system:MS_SYS,messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,S.msDiff)}]});
     S.msLoading=false;
   }catch(err){
     S.msLoading=false;
@@ -554,6 +572,19 @@ async function loadMedScenario(){
       :'Failed to generate scenario.\n'+err.message;
   }
   updateBadge();renderContent();
+}
+
+function msNewCase(){
+  const compatible=_pf.ms&&_pf.ms.diff===S.msDiff&&(S.msExamMode||_pf.ms.settingId===S.msSetting);
+  if(compatible){
+    S.msCase=_pf.ms.msCase;S.msQIndex=0;S.msAnswers={};S.msRevealed={};S.msError=null;S.msLoading=false;
+    if(S.msExamMode)S.msSetting=_pf.ms.settingId;
+    _pf.ms=null;
+    prefetchMedScenario();
+    updateBadge();renderContent();
+  }else{
+    _pf.ms=null;loadMedScenario();
+  }
 }
 
 function msSelect(letter){
@@ -572,13 +603,14 @@ function msSelect(letter){
     qnum:q.qnum,qtype:q.type,case_title:S.msCase.case_title,documents:S.msCase.documents});
   if(S.history.length>500)S.history.pop();
   saveHistory();
+  if(qi===0) prefetchMedScenario(); // start after first answer — gives 2 questions of fetch time
   updateBadge();renderContent();
 }
 
 function msNext(){
   const total=S.msCase?.questions?.length||3;
   if(S.msQIndex<total-1){S.msQIndex++;renderContent();}
-  else loadMedScenario();
+  else msNewCase();
 }
 
 // ── RENDER HELPERS ────────────────────────────────────────────────────────────
@@ -686,7 +718,7 @@ function renderDomainQuiz(){
     </div>
     ${renderChoices(q.choices,S.dqRevealed,S.dqSelected,q.correct,'dqSelect',q.wrong_reasons)}
     ${renderExplanation(S.dqRevealed,S.dqSelected,q.correct,q.explanation,q.guideline_ref)}
-    ${S.dqRevealed?`<button class="next-btn" onclick="S.dqQuestion=null;loadDomainQ()">Next Question →</button>`:''}
+    ${S.dqRevealed?`<button class="next-btn" onclick="dqNext()">Next Question →</button>`:''}
   </div>`;
 }
 
