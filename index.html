@@ -167,6 +167,19 @@ h1{font-family:'DM Serif Display',serif;font-size:24px;color:#fff;margin-bottom:
 .stat-med{font-family:'DM Serif Display',serif;font-size:30px;}
 .progress-bar{background:var(--border);border-radius:99px;height:6px;margin-top:10px;overflow:hidden;}
 .progress-fill{height:100%;border-radius:99px;background:linear-gradient(90deg,var(--blue-dark),var(--blue));transition:width .6s ease;}
+.domain-row{background:var(--surface);border-radius:12px;padding:12px 14px;margin-bottom:8px;border:1px solid var(--border);}
+.domain-row.weak{border-left:3px solid var(--red);}
+.domain-row.mid{border-left:3px solid var(--yellow);}
+.domain-row.ok{border-left:3px solid var(--green);}
+.domain-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;}
+.domain-name{font-size:12px;font-weight:700;color:var(--text);flex:1;margin-right:8px;}
+.domain-acc{font-family:'DM Serif Display',serif;font-size:22px;}
+.domain-count{font-size:10px;color:var(--dim);margin-top:1px;}
+.diff-pills{display:flex;gap:5px;flex-wrap:wrap;margin-top:6px;}
+.diff-pill{font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;background:var(--surface2);border:1px solid var(--border);color:var(--muted);}
+.diff-pill.easy{border-color:#4ade8066;color:#4ade80;}
+.diff-pill.medium{border-color:#fbbf2466;color:#fbbf24;}
+.diff-pill.hard{border-color:#f8717166;color:#f87171;}
 
 /* KEY SCREEN */
 .key-screen{padding:28px 20px;display:flex;flex-direction:column;gap:14px;}
@@ -208,7 +221,7 @@ h1{font-family:'DM Serif Display',serif;font-size:24px;color:#fff;margin-bottom:
     <button class="nav-btn active" id="nav-home" onclick="navigate('home')"><span class="nav-icon">⚙️</span>SETUP</button>
     <button class="nav-btn" id="nav-dq" onclick="navigate('dq')"><span class="nav-icon">📚</span>DOMAIN Q</button>
     <button class="nav-btn" id="nav-ms" onclick="navigate('ms')"><span class="nav-icon">🏥</span>MED SCENARIO</button>
-    <button class="nav-btn" id="nav-history" onclick="navigate('history')"><span class="nav-icon">📋</span>HISTORY</button>
+    <button class="nav-btn" id="nav-stats" onclick="navigate('stats')"><span class="nav-icon">📊</span>STATS</button>
     <button class="nav-btn" id="nav-key" onclick="navigate('key')"><span class="nav-icon">🔑</span>KEY</button>
   </nav>
 </div>
@@ -238,6 +251,13 @@ const SETTINGS = [
 ];
 
 // ── STATE ─────────────────────────────────────────────────────────────────────
+function loadHistory(){
+  try{ return JSON.parse(localStorage.getItem('ccs_history')||'[]'); }catch(e){ return []; }
+}
+function saveHistory(){
+  try{ localStorage.setItem('ccs_history',JSON.stringify(S.history)); }catch(e){}
+}
+
 let S = {
   screen:'home',
   // domain q
@@ -247,7 +267,7 @@ let S = {
   msSetting:'inpatient', msDiff:'Medium', msExamMode:false,
   msCase:null, msQIndex:0, msAnswers:{}, msRevealed:{}, msLoading:false, msError:null,
   // shared stats
-  score:{correct:0,total:0}, streak:0, bestStreak:0, history:[],
+  score:{correct:0,total:0}, streak:0, bestStreak:0, history: loadHistory(),
 };
 
 // ── HELPERS ───────────────────────────────────────────────────────────────────
@@ -282,7 +302,7 @@ function updateBadge(){
 function render(){updateBadge();renderContent();}
 function renderContent(){
   const el=document.getElementById('content');
-  const map={home:renderHome,dq:renderDomainQuiz,ms:renderMedScenario,history:renderHistory,stats:renderStats,key:renderKeyScreen};
+  const map={home:renderHome,dq:renderDomainQuiz,ms:renderMedScenario,stats:renderStats,key:renderKeyScreen};
   el.innerHTML=(map[S.screen]||renderHome)();
   el.scrollTop=0;
 }
@@ -350,9 +370,10 @@ function dqSelect(letter){
   S.streak=correct?S.streak+1:0;
   if(S.streak>S.bestStreak)S.bestStreak=S.streak;
   S.history.unshift({question:S.dqQuestion.question,mode:'Domain Q',
-    tag:domIcon(S.dqDomain)+' '+domLabel(S.dqDomain),
+    domainId:S.dqDomain,tag:domIcon(S.dqDomain)+' '+domLabel(S.dqDomain),
     diff:S.dqDiff,correct,answer:letter,correctAnswer:S.dqQuestion.correct});
-  if(S.history.length>100)S.history.pop();
+  if(S.history.length>500)S.history.pop();
+  saveHistory();
   updateBadge();renderContent();
 }
 
@@ -440,9 +461,10 @@ function msSelect(letter){
   S.streak=correct?S.streak+1:0;
   if(S.streak>S.bestStreak)S.bestStreak=S.streak;
   S.history.unshift({question:q.question,mode:'Med Scenario',
-    tag:setIcon(S.msSetting)+' '+setLabel(S.msSetting)+' – '+q.type,
+    settingId:S.msSetting,tag:setIcon(S.msSetting)+' '+setLabel(S.msSetting)+' – '+q.type,
     diff:S.msDiff,correct,answer:letter,correctAnswer:q.correct});
-  if(S.history.length>100)S.history.pop();
+  if(S.history.length>500)S.history.pop();
+  saveHistory();
   updateBadge();renderContent();
 }
 
@@ -629,47 +651,74 @@ function renderMedScenario(){
   </div>`;
 }
 
-function renderHistory(){
-  return `<div class="hist-body">
-    <div class="section-label">Answer History (${S.history.length})</div>
-    ${!S.history.length?`<div class="empty-state"><div style="font-size:44px;margin-bottom:10px">📝</div><div>No answers yet. Start practicing!</div></div>`
-    :S.history.map(h=>`
-      <div class="hist-item ${h.correct?'c':'w'}">
-        <div class="hist-q">${h.question}</div>
-        <div class="hist-meta">${h.correct?'✓ Correct':'✗ Wrong (ans: '+h.correctAnswer+')'} · ${h.diff} · ${h.tag||''} · ${h.mode}</div>
-      </div>`).join('')}
+function domainRowHtml(label, icon, items){
+  if(!items.length) return '';
+  const acc=Math.round(items.filter(h=>h.correct).length/items.length*100);
+  const cls=acc<70?'weak':acc<85?'mid':'ok';
+  const accColor=acc<70?'var(--red)':acc<85?'var(--yellow)':'var(--green)';
+  const pills=['Easy','Medium','Hard'].map(d=>{
+    const sub=items.filter(h=>h.diff===d);
+    if(!sub.length) return '';
+    const p=Math.round(sub.filter(h=>h.correct).length/sub.length*100);
+    return `<span class="diff-pill ${d.toLowerCase()}">${d} ${p}% <span style="opacity:.6">(${sub.length})</span></span>`;
+  }).join('');
+  return `<div class="domain-row ${cls}">
+    <div class="domain-header">
+      <div class="domain-name">${icon} ${label}</div>
+      <div style="text-align:right">
+        <div class="domain-acc" style="color:${accColor}">${acc}%</div>
+        <div class="domain-count">${items.length} answered${acc<70?' · ⚠️ Focus here':''}</div>
+      </div>
+    </div>
+    <div style="background:var(--border);border-radius:99px;height:4px;overflow:hidden;margin-bottom:7px;">
+      <div style="height:100%;border-radius:99px;width:${acc}%;background:${accColor};transition:width .5s;"></div>
+    </div>
+    <div class="diff-pills">${pills}</div>
   </div>`;
 }
 
 function renderStats(){
-  const total=S.history.length,correct=S.history.filter(h=>h.correct).length;
+  const h=S.history;
+  const total=h.length, correct=h.filter(x=>x.correct).length;
   const acc=total>0?Math.round(correct/total*100):0;
-  const dq=S.history.filter(h=>h.mode==='Domain Q');
-  const ms=S.history.filter(h=>h.mode==='Med Scenario');
-  const dqAcc=dq.length>0?Math.round(dq.filter(h=>h.correct).length/dq.length*100):0;
-  const msAcc=ms.length>0?Math.round(ms.filter(h=>h.correct).length/ms.length*100):0;
+  const accColor=acc<70?'var(--red)':acc<85?'var(--yellow)':'var(--blue)';
+
+  const domainRows=DOMAINS.map(d=>
+    domainRowHtml(d.label,d.icon,h.filter(x=>x.mode==='Domain Q'&&x.domainId===d.id))
+  ).join('');
+
+  const settingRows=SETTINGS.map(s=>
+    domainRowHtml(s.label,s.icon,h.filter(x=>x.mode==='Med Scenario'&&x.settingId===s.id))
+  ).join('');
+
+  const histHtml=!h.length
+    ?`<div class="empty-state"><div style="font-size:44px;margin-bottom:10px">📝</div><div>No answers yet. Start practicing!</div></div>`
+    :h.map(x=>`
+      <div class="hist-item ${x.correct?'c':'w'}">
+        <div class="hist-q">${x.question}</div>
+        <div class="hist-meta">${x.correct?'✓ Correct':'✗ Wrong (ans: '+x.correctAnswer+')'} · ${x.diff} · ${x.tag||''}</div>
+      </div>`).join('');
+
   return `<div class="stats-body">
-    <div class="section-label">Overall Performance</div>
-    <div class="stat-card"><div class="stat-big">${acc}%</div><div class="stat-label">OVERALL ACCURACY</div><div class="progress-bar"><div class="progress-fill" style="width:${acc}%"></div></div></div>
+    <div class="section-label">Overall</div>
+    <div class="stat-card">
+      <div class="stat-big" style="color:${accColor}">${acc}%</div>
+      <div class="stat-label">OVERALL ACCURACY</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${acc}%;background:${accColor}"></div></div>
+    </div>
     <div class="stat-row">
       <div class="stat-small"><div class="stat-med" style="color:#7eb8f7">${total}</div><div class="stat-label">ANSWERED</div></div>
       <div class="stat-small"><div class="stat-med" style="color:#fbbf24">🔥${S.bestStreak}</div><div class="stat-label">BEST STREAK</div></div>
     </div>
-    <div class="section-label">By Section</div>
-    <div class="stat-row">
-      <div class="stat-small">
-        <div style="font-size:20px;margin-bottom:4px">📚</div>
-        <div class="stat-med" style="color:var(--blue)">${dqAcc}%</div>
-        <div class="stat-label">DOMAIN Q</div>
-        <div style="font-size:10px;color:var(--dim)">${dq.length} answered</div>
-      </div>
-      <div class="stat-small">
-        <div style="font-size:20px;margin-bottom:4px">🏥</div>
-        <div class="stat-med" style="color:var(--blue)">${msAcc}%</div>
-        <div class="stat-label">MED SCENARIO</div>
-        <div style="font-size:10px;color:var(--dim)">${ms.length} answered</div>
-      </div>
+
+    ${domainRows?`<div class="section-label">Domain Q — by Domain</div>${domainRows}`:''}
+    ${settingRows?`<div class="section-label">Med Scenario — by Setting</div>${settingRows}`:''}
+
+    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
+      <span>Answer History (${h.length})</span>
+      ${h.length?`<button onclick="if(confirm('Clear all history?')){S.history=[];saveHistory();S.score={correct:0,total:0};S.streak=0;S.bestStreak=0;render();}" style="background:none;border:1px solid #3a1a1a;border-radius:6px;padding:2px 10px;color:var(--red);font-size:10px;font-family:'DM Sans',sans-serif;cursor:pointer;">Clear</button>`:''}
     </div>
+    <div class="hist-body" style="padding:0 0 32px;">${histHtml}</div>
   </div>`;
 }
 
