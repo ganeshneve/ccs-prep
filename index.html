@@ -808,11 +808,14 @@ function renderStats(){
     ${domainRows?`<div class="section-label">Domain Q — by Domain</div><div class="domains-grid">${domainRows}</div>`:''}
     ${settingRows?`<div class="section-label">Med Scenario — by Setting</div><div class="domains-grid settings-grid">${settingRows}</div>`:''}
 
-    <div class="section-label" style="display:flex;justify-content:space-between;align-items:center;">
-      <span>Answer History (${h.length})</span>
-      ${h.length?`<button onclick="if(confirm('Clear all history?')){S.history=[];saveHistory();S.score={correct:0,total:0};S.streak=0;S.bestStreak=0;render();}" style="background:none;border:1px solid #3a1a1a;border-radius:6px;padding:2px 10px;color:var(--red);font-size:10px;font-family:'DM Sans',sans-serif;cursor:pointer;">Clear</button>`:''}
-    </div>
-    <div class="hist-body" style="padding:0 0 32px;">${histHtml}</div>
+    <div class="section-label">Answer History (${h.length})</div>
+    <div class="hist-body" style="padding:0 0 12px;">${histHtml}</div>
+    ${h.length?`
+    <div style="padding:0 14px 40px;">
+      <button onclick="clearHistory()" style="width:100%;padding:13px;background:#1a0d0d;border:1.5px solid var(--red);border-radius:12px;color:var(--red);font-size:14px;font-weight:700;font-family:'DM Sans',sans-serif;cursor:pointer;letter-spacing:.5px;">
+        🗑 Clear All History
+      </button>
+    </div>`:''}
   </div>`;
 }
 
@@ -841,6 +844,20 @@ function renderKeyScreen(){
       <p class="key-note">Claude Sonnet · Pay per use · stored only on this device</p>
     `}
   </div>`;
+}
+
+let _clearPending=false;
+function clearHistory(){
+  if(!_clearPending){
+    _clearPending=true;
+    const btn=document.querySelector('[onclick="clearHistory()"]');
+    if(btn){btn.textContent='⚠️ Tap again to confirm clear';btn.style.background='#2a1000';btn.style.borderColor='#f87171';}
+    setTimeout(()=>{_clearPending=false;renderContent();},3000);
+    return;
+  }
+  _clearPending=false;
+  S.history=[];S.score={correct:0,total:0};S.streak=0;S.bestStreak=0;
+  saveHistory();render();
 }
 
 function saveKeyAndGo(){
