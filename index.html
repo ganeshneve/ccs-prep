@@ -480,6 +480,7 @@ async function loadDomainQ(){
     S.dqQuestion=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0.3,
       system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff)}]});
     S.dqLoading=false;
+    prefetchDomainQ(); // start fetching next question immediately while user reads this one
   }catch(err){
     S.dqLoading=false;
     S.dqError=err.message?.includes('API_KEY')||err.message?.includes('401')
@@ -513,7 +514,7 @@ function dqSelect(letter){
     choices:S.dqQuestion.choices,wrong_reasons:S.dqQuestion.wrong_reasons,explanation:S.dqQuestion.explanation,guideline_ref:S.dqQuestion.guideline_ref});
   if(S.history.length>500)S.history.pop();
   saveHistory();
-  prefetchDomainQ();
+  if(!_pf.dq&&!_pf.dqBusy) prefetchDomainQ(); // retry only if earlier prefetch failed
   updateBadge();renderContent();
 }
 
@@ -565,6 +566,7 @@ async function loadMedScenario(){
     S.msCase=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:3500,temperature:0.3,
       system:MS_SYS,messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,S.msDiff)}]});
     S.msLoading=false;
+    prefetchMedScenario(); // start fetching next case immediately while user works through this one
   }catch(err){
     S.msLoading=false;
     S.msError=err.message?.includes('API_KEY')||err.message?.includes('401')
@@ -603,7 +605,7 @@ function msSelect(letter){
     qnum:q.qnum,qtype:q.type,case_title:S.msCase.case_title,documents:S.msCase.documents});
   if(S.history.length>500)S.history.pop();
   saveHistory();
-  if(qi===0) prefetchMedScenario(); // start after first answer — gives 2 questions of fetch time
+  if(qi===0&&!_pf.ms&&!_pf.msBusy) prefetchMedScenario(); // retry only if earlier prefetch failed
   updateBadge();renderContent();
 }
 
