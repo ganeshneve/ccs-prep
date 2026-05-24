@@ -405,34 +405,30 @@ function renderContent(){
 }
 
 // ── DOMAIN Q API ──────────────────────────────────────────────────────────────
-const DQ_TOPICS = [
-  'acute myocardial infarction and coronary artery disease',
-  'sepsis and septicemia',
-  'diabetes mellitus with complications',
-  'hip fracture and orthopedic trauma',
-  'stroke and cerebrovascular disease',
-  'heart failure (systolic/diastolic)',
-  'pneumonia (bacterial, viral, aspiration)',
-  'colorectal surgery and bowel obstruction',
-  'breast cancer and oncology coding',
-  'kidney disease and renal failure',
-  'obstetrics and delivery complications',
-  'spinal disorders and back surgery',
-  'wound care and pressure ulcers',
-  'liver disease and cirrhosis',
-  'appendectomy and abdominal surgery',
-  'hypertension with heart and kidney disease',
-  'joint replacement (knee/hip)',
-  'burn coding and rule of nines',
-  'substance use disorders',
-  'mental health and behavioral conditions',
-  'traumatic brain injury',
-  'peripheral vascular disease and amputation',
-  'thyroid disorders and endocrinology',
-  'gastrointestinal hemorrhage',
-  'urinary tract infection and urosepsis',
-];
-const _randTopic = () => DQ_TOPICS[Math.floor(Math.random()*DQ_TOPICS.length)];
+// Grouped by ICD-10-CM chapter — random system picked first, then random topic
+// within it, so every body system gets equal weight
+const DQ_TOPIC_MAP = {
+  'Infectious & Parasitic (A00-B99)':    ['sepsis and septicemia','HIV disease with associated conditions','C. diff colitis','infectious endocarditis'],
+  'Neoplasms (C00-D49)':                 ['breast cancer coding and staging','colorectal cancer and sequencing','lung cancer with metastasis','leukemia and lymphoma'],
+  'Blood & Immune (D50-D89)':            ['iron-deficiency anemia','anemia due to chronic disease','coagulation defects and thrombocytopenia'],
+  'Endocrine & Metabolic (E00-E89)':     ['diabetes mellitus with complications','thyroid disorders','obesity and morbid obesity','adrenal disorders'],
+  'Mental & Behavioral (F01-F99)':       ['substance use disorders and withdrawal','major depressive disorder','schizophrenia and psychotic disorders','PTSD and anxiety disorders'],
+  'Nervous System (G00-G99)':            ['traumatic brain injury','Parkinson disease and dementia','epilepsy and seizure disorders','peripheral neuropathy'],
+  'Eye & Adnexa (H00-H59)':             ['diabetic retinopathy','glaucoma','cataract surgery'],
+  'Ear & Mastoid (H60-H95)':            ['otitis media','sensorineural hearing loss','mastoiditis'],
+  'Circulatory (I00-I99)':              ['acute MI (STEMI/NSTEMI)','heart failure (systolic/diastolic)','stroke and cerebrovascular accident','atrial fibrillation','hypertension with CKD','deep vein thrombosis and PE','peripheral vascular disease and amputation'],
+  'Respiratory (J00-J99)':              ['pneumonia (bacterial/viral/aspiration)','COPD with acute exacerbation','acute respiratory failure','pleural effusion and pneumothorax','pulmonary hypertension'],
+  'Digestive (K00-K95)':                ['GI hemorrhage and peptic ulcer','bowel obstruction and ileus','liver disease and cirrhosis','acute pancreatitis','appendicitis and appendectomy','Crohn disease and ulcerative colitis'],
+  'Skin & Subcutaneous (L00-L99)':      ['pressure ulcer staging','cellulitis and skin infections','burn wound coding'],
+  'Musculoskeletal (M00-M99)':          ['hip and knee arthroplasty','spinal disorders and back surgery','osteoporosis with pathological fracture','rheumatoid arthritis','gout'],
+  'Genitourinary (N00-N99)':            ['acute and chronic kidney disease','urinary tract infection and urosepsis','benign prostatic hyperplasia','nephrotic syndrome'],
+  'Pregnancy & Childbirth (O00-O9A)':   ['obstetric delivery and postpartum complications','gestational diabetes','preeclampsia and eclampsia','cesarean delivery coding'],
+  'Perinatal (P00-P96)':               ['newborn coding and prematurity','neonatal jaundice','respiratory distress syndrome of newborn'],
+  'Injury & Poisoning (S00-T88)':       ['hip fracture and orthopedic trauma','burns and rule of nines','drug poisoning and adverse effects','spinal cord injury'],
+  'Z-Codes & Factors (Z00-Z99)':        ['aftercare and follow-up Z-codes','transplant status coding','screening and prophylactic surgery Z-codes'],
+};
+const _rand = arr => arr[Math.floor(Math.random()*arr.length)];
+const _randTopic = () => { const sys=_rand(Object.keys(DQ_TOPIC_MAP)); return `${sys}: ${_rand(DQ_TOPIC_MAP[sys])}`; };
 
 const DQ_PROMPT = (domain,tasks,diff,topic) =>
 `You are a senior AHIMA-certified CCS coder writing exam questions. AHIMA CCS Exam Content Outline (effective 05/01/2024).
