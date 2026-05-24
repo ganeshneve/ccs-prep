@@ -405,12 +405,42 @@ function renderContent(){
 }
 
 // ── DOMAIN Q API ──────────────────────────────────────────────────────────────
-const DQ_PROMPT = (domain,tasks,diff) =>
+const DQ_TOPICS = [
+  'acute myocardial infarction and coronary artery disease',
+  'sepsis and septicemia',
+  'diabetes mellitus with complications',
+  'hip fracture and orthopedic trauma',
+  'stroke and cerebrovascular disease',
+  'heart failure (systolic/diastolic)',
+  'pneumonia (bacterial, viral, aspiration)',
+  'colorectal surgery and bowel obstruction',
+  'breast cancer and oncology coding',
+  'kidney disease and renal failure',
+  'obstetrics and delivery complications',
+  'spinal disorders and back surgery',
+  'wound care and pressure ulcers',
+  'liver disease and cirrhosis',
+  'appendectomy and abdominal surgery',
+  'hypertension with heart and kidney disease',
+  'joint replacement (knee/hip)',
+  'burn coding and rule of nines',
+  'substance use disorders',
+  'mental health and behavioral conditions',
+  'traumatic brain injury',
+  'peripheral vascular disease and amputation',
+  'thyroid disorders and endocrinology',
+  'gastrointestinal hemorrhage',
+  'urinary tract infection and urosepsis',
+];
+const _randTopic = () => DQ_TOPICS[Math.floor(Math.random()*DQ_TOPICS.length)];
+
+const DQ_PROMPT = (domain,tasks,diff,topic) =>
 `You are a senior AHIMA-certified CCS coder writing exam questions. AHIMA CCS Exam Content Outline (effective 05/01/2024).
 
 Generate ONE ${diff} multiple-choice question for:
 DOMAIN: ${domain}
 TASKS COVERED: ${tasks}
+CLINICAL TOPIC: ${topic} — your scenario MUST be about this specific condition/procedure.
 DIFFICULTY: ${diff==='Easy'?'Single-step, straightforward knowledge check':diff==='Medium'?'Requires specific guideline knowledge':'Complex scenario, multiple guidelines, or tricky distractors'}
 
 ACCURACY RULES — follow every one before writing your JSON:
@@ -455,7 +485,7 @@ async function prefetchDomainQ(){
   try{
     const dom=DOMAINS.find(d=>d.id===domainId);
     const q=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0,
-      system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,diff)}]});
+      system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,diff,_randTopic())}]});
     _pf.dq={question:q,domainId,diff};
   }catch(e){ _pf.dq=null; }
   _pf.dqBusy=false; updateBadge();
@@ -483,7 +513,7 @@ async function loadDomainQ(){
   try{
     const dom=DOMAINS.find(d=>d.id===S.dqDomain);
     S.dqQuestion=await _callClaude({apiKey:key,model:'claude-sonnet-4-5',max_tokens:1500,temperature:0,
-      system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff)}]});
+      system:DQ_SYS,messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff,_randTopic())}]});
     S.dqLoading=false;
     prefetchDomainQ(); // start fetching next question immediately while user reads this one
   }catch(err){
