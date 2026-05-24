@@ -401,19 +401,26 @@ function renderContent(){
 
 // ── DOMAIN Q API ──────────────────────────────────────────────────────────────
 const DQ_PROMPT = (domain,tasks,diff) =>
-`You are a CCS exam question writer. AHIMA CCS Exam Content Outline (effective 05/01/2024).
+`You are a senior AHIMA-certified CCS coder writing exam questions. AHIMA CCS Exam Content Outline (effective 05/01/2024).
 
 Generate ONE ${diff} multiple-choice question for:
 DOMAIN: ${domain}
 TASKS COVERED: ${tasks}
 DIFFICULTY: ${diff==='Easy'?'Single-step, straightforward knowledge check':diff==='Medium'?'Requires specific guideline knowledge':'Complex scenario, multiple guidelines, or tricky distractors'}
 
-Write a realistic clinical vignette or scenario relevant to this domain. Then ask a question testing one of the domain tasks.
+ACCURACY RULES — follow every one before writing your JSON:
+1. Every ICD-10-CM, CPT, HCPCS, and ICD-10-PCS code you include must be a real, valid FY2024/2024 code. Do not invent or approximate codes.
+2. The correct answer must be unambiguously correct per official guidelines — if you are not certain, choose a different scenario.
+3. Each distractor must be wrong for a specific, nameable reason (wrong specificity, wrong laterality, sequencing error, wrong code set, etc.). Vague distractors are not allowed.
+4. The guideline_ref must cite a real section (e.g. "ICD-10-CM Official Guidelines Section I.C.19.e" or "CPT Surgery Guidelines — Integumentary"). Do not fabricate section numbers.
+5. The explanation must state why the correct answer is right AND briefly why the top distractor is wrong.
 
-Reply ONLY with valid JSON (no markdown):
-{"question":"...","scenario":"...2-3 sentence clinical vignette or regulatory scenario...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A","explanation":"...cite specific guideline. Under 90 words.","guideline_ref":"...e.g. ICD-10-CM Official Guidelines Section I.C.9.a"}
+Write a 2–3 sentence clinical or regulatory scenario, then ask a question testing one domain task.
 
-Rules: one correct answer, three plausible distractors reflecting common errors, complete JSON only.`;
+Reply ONLY with valid JSON (no markdown, start with {, end with }):
+{"question":"...","scenario":"...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"A","explanation":"Under 100 words. State why correct answer is right and why the main wrong choice is incorrect.","guideline_ref":"Real guideline section"}
+
+One correct answer, complete JSON only.`;
 
 async function loadDomainQ(){
   const key=getKey();
@@ -429,8 +436,8 @@ async function loadDomainQ(){
         apiKey:key,
         model:'claude-sonnet-4-5',
         max_tokens:1500,
-        temperature:0.8,
-        system:'You are a CCS exam question generator. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation, no text before or after the JSON. Start your response with { and end with }.',
+        temperature:0.3,
+        system:'You are a senior AHIMA-certified CCS coder and exam question writer. Accuracy is paramount — only include codes and guideline references you are certain are correct for FY2024. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start your response with { and end with }.',
         messages:[{role:'user',content:DQ_PROMPT(dom.label,dom.tasks,S.dqDiff)}]
       })
     });
@@ -471,35 +478,38 @@ function dqSelect(letter){
 
 // ── MED SCENARIO API ──────────────────────────────────────────────────────────
 const MS_PROMPT = (setting,rules,diff) =>
-`You are a CCS exam question writer following the official AHIMA CCS Exam Content Outline (effective 05/01/2024).
+`You are a senior AHIMA-certified CCS coder writing exam practice cases. AHIMA CCS Exam Content Outline (effective 05/01/2024).
 
-Generate a ${diff} difficulty Medical Scenario case for the ${setting} setting, exactly like the real CCS exam format.
+Generate a ${diff} difficulty Medical Scenario for the ${setting} setting.
 
 SETTING: ${setting}
 CODING RULES: ${rules}
-DIFFICULTY: ${diff === 'Easy' ? 'Straightforward single diagnosis, common procedure' : diff === 'Medium' ? 'Requires specific guideline knowledge, laterality, or sequencing' : 'Complex multi-condition, complication coding, or tricky distractors'}
+DIFFICULTY: ${diff==='Easy'?'Straightforward single diagnosis, common procedure':diff==='Medium'?'Requires specific guideline knowledge, laterality, or sequencing':'Complex multi-condition, complication coding, or tricky distractors'}
 
-Provide realistic clinical documentation followed by exactly 3 coding questions about the SAME case.
+ACCURACY RULES — verify every item before writing your JSON:
+1. Every ICD-10-CM, CPT, HCPCS, and ICD-10-PCS code must be a real, valid FY2024/2024 code with the correct full description. Do not invent codes.
+2. For ICD-10-PCS: verify all 7 characters are correct (root operation, body part, approach, device, qualifier). Do not approximate.
+3. For CPT: verify the code descriptor matches the documented procedure exactly. Include correct modifiers only when clearly supported.
+4. The correct answer for each question must be unambiguously correct per official guidelines. If uncertain, choose a simpler, more familiar scenario.
+5. Each distractor must be wrong for a specific reason (wrong laterality, wrong specificity, wrong body part, wrong approach, bundling rule, sequencing error). State the reason in the explanation.
+6. Guideline references must be real and precise (e.g. "ICD-10-CM Official Guidelines Section I.C.9.a.1" or "ICD-10-PCS Guidelines B3.2").
+7. The clinical documentation must be internally consistent — diagnoses, procedures, and codes must all match.
 
 REQUIRED DOCUMENTS for ${setting}:
-${setting==='Inpatient' ? `- HISTORY AND PHYSICAL: Reason for Admission, History of Present Illness (3-4 sentences), Past Medical History, Physical Examination findings, Impression
-- OPERATIVE REPORT (if surgery): Preoperative Diagnosis, Postoperative Diagnosis, Procedure performed, Anesthesia, detailed Procedure description (4-6 sentences)
-- DISCHARGE SUMMARY: Principal Diagnosis, Secondary Diagnoses, Procedures Performed, Hospital Course (3-4 sentences), Discharge Condition` : ''}${setting==='Outpatient' ? `- HISTORY AND PHYSICAL: Chief Complaint, History of Present Illness (3-4 sentences), Past Medical History, Physical Examination, Impression, Plan
-- OPERATIVE/PROCEDURE REPORT: Preoperative Diagnosis, Postoperative Diagnosis, Procedure, Anesthesia, Procedure description (4-6 sentences)
-- PATHOLOGY REPORT (if applicable): Specimen, Gross Description, Microscopic Description, Final Diagnosis` : ''}${setting==='Emergency Department' ? `- EMERGENCY DEPARTMENT NOTE: Chief Complaint, History of Present Illness (3-4 sentences), Past Medical History, Review of Systems, Physical Examination (Vitals + findings), Medical Decision Making, Assessment, Plan, Disposition
-- DIAGNOSTIC RESULTS: Relevant lab values or imaging findings with interpretation` : ''}
+${setting==='Inpatient'?`- HISTORY AND PHYSICAL: Reason for Admission, HPI (3-4 sentences), Past Medical History, Physical Examination, Impression
+- OPERATIVE REPORT (if surgery): Pre/Postoperative Diagnosis, Procedure, Anesthesia, Procedure description (4-6 sentences)
+- DISCHARGE SUMMARY: Principal Diagnosis, Secondary Diagnoses, Procedures Performed, Hospital Course (3-4 sentences), Discharge Condition`:''}${setting==='Outpatient'?`- HISTORY AND PHYSICAL: Chief Complaint, HPI (3-4 sentences), Past Medical History, Physical Examination, Impression, Plan
+- OPERATIVE/PROCEDURE REPORT: Pre/Postoperative Diagnosis, Procedure, Anesthesia, Procedure description (4-6 sentences)
+- PATHOLOGY REPORT (if applicable): Specimen, Gross/Microscopic Description, Final Diagnosis`:''}${setting==='Emergency Department'?`- EMERGENCY DEPARTMENT NOTE: Chief Complaint, HPI (3-4 sentences), PMH, Review of Systems, Physical Examination (Vitals + findings), Medical Decision Making, Assessment, Plan, Disposition
+- DIAGNOSTIC RESULTS: Relevant labs or imaging with interpretation`:''}
 
-Then generate exactly 3 questions:
-Q1 — "${setting==='Inpatient'?'Choose the correct principal diagnosis code.':'Choose the correct first-listed diagnosis code.'}"
-      4 ICD-10-CM code choices (A-D) with realistic distractors (wrong specificity, laterality, or sequencing)
-Q2 — "Choose the correct procedure code(s)."
-      4 ${setting==='Inpatient'?'ICD-10-PCS':'CPT/HCPCS'} code choices with modifiers where applicable
-Q3 — A domain-specific question testing one of: POA assignment, MCC/CC impact on DRG, sequencing rule, modifier application, APC grouping, UHDDS compliance, or documentation query opportunity
+Generate exactly 3 questions about this case:
+Q1 — "${setting==='Inpatient'?'Choose the correct principal diagnosis code.':'Choose the correct first-listed diagnosis code.'}" — 4 ICD-10-CM choices, distractors differ in specificity/laterality/sequencing
+Q2 — "Choose the correct procedure code(s)." — 4 ${setting==='Inpatient'?'ICD-10-PCS':'CPT/HCPCS'} choices with modifiers where applicable
+Q3 — Concept question on: POA assignment, MCC/CC/DRG impact, sequencing rule, modifier use, APC grouping, UHDDS compliance, or query opportunity
 
-Reply with ONLY this JSON (no markdown, start with {, end with }):
-{"case_title":"e.g. Same-Day Surgery — Right Breast Lumpectomy with Sentinel Node Biopsy","setting":"${setting}","documents":[{"section":"HISTORY AND PHYSICAL","content":"REASON FOR ADMISSION: ...\nHISTORY OF PRESENT ILLNESS: ...\nPAST MEDICAL HISTORY: ...\nPHYSICAL EXAMINATION: ...\nIMPRESSION: ..."},{"section":"OPERATIVE REPORT","content":"PREOPERATIVE DIAGNOSIS: ...\nPOSTOPERATIVE DIAGNOSIS: ...\nPROCEDURE: ...\nANESTHESIA: ...\nPROCEDURE DESCRIPTION: ..."}],"questions":[{"qnum":1,"type":"${setting==='Inpatient'?'Principal Diagnosis Code':'First-Listed Diagnosis Code'}","question":"${setting==='Inpatient'?'Choose the correct principal diagnosis code.':'Choose the correct first-listed diagnosis code.'}","choices":{"A":"D05.11 — Intraductal carcinoma in situ, right breast","B":"C50.221 — Malignant neoplasm of upper-outer quadrant, right breast","C":"D05.12 — Intraductal carcinoma in situ, left breast","D":"C50.211 — Malignant neoplasm of upper-outer quadrant, left breast"},"correct":"A","explanation":"Explanation under 80 words citing specific guideline.","guideline_ref":"ICD-10-CM Official Guidelines Section I.C.2"},{"qnum":2,"type":"Procedure Code","question":"Choose the correct procedure code(s).","choices":{"A":"19301-RT","B":"19302-RT","C":"19307-LT","D":"19300-RT"},"correct":"A","explanation":"Explanation under 80 words.","guideline_ref":"CPT Surgery Guidelines"},{"qnum":3,"type":"Coding/Compliance","question":"...specific question about this case...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"C","explanation":"Explanation under 80 words.","guideline_ref":"..."}]}
-
-Critical: use realistic accurate ICD-10-CM/CPT/ICD-10-PCS codes, complete valid JSON only, explanations under 80 words each.`;
+Reply with ONLY valid JSON (no markdown, start with {, end with }):
+{"case_title":"...","setting":"${setting}","documents":[{"section":"...","content":"..."}],"questions":[{"qnum":1,"type":"${setting==='Inpatient'?'Principal Diagnosis Code':'First-Listed Diagnosis Code'}","question":"...","choices":{"A":"CODE — description","B":"CODE — description","C":"CODE — description","D":"CODE — description"},"correct":"A","explanation":"Under 100 words: why correct answer is right AND why the main distractor is wrong. Cite specific guideline.","guideline_ref":"Real guideline section"},{"qnum":2,"type":"Procedure Code","question":"...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"B","explanation":"...","guideline_ref":"..."},{"qnum":3,"type":"Coding/Compliance","question":"...","choices":{"A":"...","B":"...","C":"...","D":"..."},"correct":"C","explanation":"...","guideline_ref":"..."}]}`;
 
 async function loadMedScenario(){
   const key=getKey();
@@ -518,8 +528,8 @@ async function loadMedScenario(){
         apiKey:key,
         model:'claude-sonnet-4-5',
         max_tokens:3500,
-        temperature:0.8,
-        system:'You are a CCS exam medical scenario generator. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation, no text before or after the JSON. Start your response with { and end with }.',
+        temperature:0.3,
+        system:'You are a senior AHIMA-certified CCS coder and exam question writer. Accuracy is paramount — every code must be a real FY2024 code, every guideline reference must be a real section, and the correct answer must be unambiguously correct. You MUST respond with ONLY a valid JSON object. No markdown, no backticks, no explanation. Start your response with { and end with }.',
         messages:[{role:'user',content:MS_PROMPT(setting.label,setting.rules,S.msDiff)}]
       })
     });
